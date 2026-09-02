@@ -48,14 +48,14 @@ export class SeveraMcpAgent extends McpAgent<Env, Record<string, never>, Session
     const enableWrites = this.env.ENABLE_WRITE_TOOLS === "true";
     const allow = (key: string) => !authz.blockedToolKeys.has(key);
 
-    if (allow("lookup")) registerLookupTools(this.server, this.env, this.props);
+    if (allow("lookup")) registerLookupTools(this.server, this.env, this.props, authz);
     if (allow("cases")) registerCaseTools(this.server, this.env, this.props);
     if (allow("billing-forecast")) registerBillingForecastTools(this.server, this.env);
     if (allow("hours")) registerHoursTools(this.server, this.env, this.props, { enableWrites, authz });
     if (allow("invoices")) registerInvoiceTools(this.server, this.env);
     if (allow("proposals")) registerProposalTools(this.server, this.env);
     if (allow("activities")) registerActivityTools(this.server, this.env, this.props, authz);
-    if (allow("users")) registerUserTools(this.server, this.env);
+    if (allow("users")) registerUserTools(this.server, this.env, authz);
     if (allow("contacts")) registerContactTools(this.server, this.env);
     if (allow("products")) registerProductTools(this.server, this.env);
     if (allow("phases")) registerPhaseTools(this.server, this.env);

@@ -1,8 +1,14 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import customersActive from "../../__fixtures__/severa/customers.active.json";
 import projectsWonNb from "../../__fixtures__/severa/projects.won-nb-april.json";
-import { callTool, listTools, mockSeveraFetch } from "../../test/harness";
-import { registerLookupTools } from "./lookup";
+import { callTool, listTools, mockSeveraFetch, testAuthz } from "../../test/harness";
+import { registerLookupTools as registerLookupToolsRaw } from "./lookup";
+
+const registerLookupTools = (
+  s: Parameters<typeof registerLookupToolsRaw>[0],
+  e: Parameters<typeof registerLookupToolsRaw>[1],
+  p: Parameters<typeof registerLookupToolsRaw>[2],
+) => registerLookupToolsRaw(s, e, p, testAuthz);
 
 describe("severa_list_customers", () => {
   let calls: ReturnType<typeof mockSeveraFetch>["calls"];

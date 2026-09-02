@@ -137,14 +137,14 @@ if (authz) {
   const enableWrites = env.ENABLE_WRITE_TOOLS === "true";
   const allow = (key: string) => !authz.blockedToolKeys.has(key);
 
-  if (allow("lookup")) registerLookupTools(server, env, props);
+  if (allow("lookup")) registerLookupTools(server, env, props, authz);
   if (allow("cases")) registerCaseTools(server, env, props);
   if (allow("billing-forecast")) registerBillingForecastTools(server, env);
   if (allow("hours")) registerHoursTools(server, env, props, { enableWrites, authz });
   if (allow("invoices")) registerInvoiceTools(server, env);
   if (allow("proposals")) registerProposalTools(server, env);
   if (allow("activities")) registerActivityTools(server, env, props, authz);
-  if (allow("users")) registerUserTools(server, env);
+  if (allow("users")) registerUserTools(server, env, authz);
   if (allow("contacts")) registerContactTools(server, env);
   if (allow("products")) registerProductTools(server, env);
   if (allow("phases")) registerPhaseTools(server, env);

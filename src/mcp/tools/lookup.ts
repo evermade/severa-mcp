@@ -11,6 +11,7 @@ import type { Env } from "../../env";
 import type { SessionProps } from "../../auth/session";
 import type { CustomerModel, Money, ProjectOutputModel, UserWithName } from "../../severa/types";
 import { formatMoney, toJsonBlock, toText } from "../format";
+import type { CallerAuthz } from "../../authz";
 import {
   applyProjectClientFilters,
   buildProjectsServerQuery,
@@ -27,7 +28,12 @@ const READ_ANNOTATIONS = {
   openWorldHint: true,
 };
 
-export function registerLookupTools(server: McpServer, env: Env, props: SessionProps) {
+export function registerLookupTools(
+  server: McpServer,
+  env: Env,
+  props: SessionProps,
+  authz: CallerAuthz,
+) {
   server.registerTool(
     "severa_find_customer",
     {
@@ -96,19 +102,28 @@ export function registerLookupTools(server: McpServer, env: Env, props: SessionP
     async ({ email, text, limit }) => {
       if (!email && !text) return toText("Provide at least `email` or `text`.");
       const users = email
-        ? await severaPaginate<UserWithName>(env, "/v1/users", { query: { email, rowCount: 25 } })
+        ? await severaPaginate<UserWithName>(env, "/v1/users", {
+            query: {
+              email,
+              ...(authz.isFullAccess ? {} : { isActive: true }),
+              rowCount: 25,
+            },
+          })
         : await severaPaginate<UserWithName>(env, "/v1/users", {
             query: { isActive: true, rowCount: 500 },
           });
+      // Defense-in-depth: non-admins never see an inactive user, even if the
+      // server-side filter above were somehow bypassed or ignored.
+      const visible = authz.isFullAccess ? users : users.filter((u) => u.isActive !== false);
       const filtered = text
-        ? users.filter(
+        ? visible.filter(
             (u) =>
               matches(u.firstName, text) ||
               matches(u.lastName, text) ||
               matches(u.userName, text) ||
               matches(u.email, text),
           )
-        : users;
+        : visible;
       const hits = filtered.slice(0, limit ?? 15);
       if (!hits.length) return toText("No users matched.");
       const lines = hits.map(

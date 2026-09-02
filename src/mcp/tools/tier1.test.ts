@@ -12,7 +12,7 @@ import phasesFx from "../../__fixtures__/severa/phases.project.json";
 import { callTool, listTools, mockSeveraFetch, testAuthz } from "../../test/harness";
 import { registerProposalTools } from "./proposals";
 import { registerActivityTools as registerActivityToolsRaw } from "./activities";
-import { registerUserTools } from "./users";
+import { registerUserTools as registerUserToolsRaw } from "./users";
 import { registerContactTools } from "./contacts";
 import { registerProductTools } from "./products";
 import { registerPhaseTools } from "./phases";
@@ -22,6 +22,11 @@ const registerActivityTools = (
   e: Parameters<typeof registerActivityToolsRaw>[1],
   p: Parameters<typeof registerActivityToolsRaw>[2],
 ) => registerActivityToolsRaw(s, e, p, testAuthz);
+
+const registerUserTools = (
+  s: Parameters<typeof registerUserToolsRaw>[0],
+  e: Parameters<typeof registerUserToolsRaw>[1],
+) => registerUserToolsRaw(s, e, testAuthz);
 
 describe("severa_list_proposals", () => {
   beforeEach(() => {

@@ -5,14 +5,14 @@
 // - a tool is only registered in server.ts but not local.ts (or vice versa)
 import { describe, it, expect } from "vitest";
 import { listTools, testAuthz } from "../src/test/harness";
-import { registerLookupTools } from "../src/mcp/tools/lookup";
+import { registerLookupTools as registerLookupToolsRaw } from "../src/mcp/tools/lookup";
 import { registerCaseTools } from "../src/mcp/tools/cases";
 import { registerBillingForecastTools } from "../src/mcp/tools/billing-forecast";
 import { registerHoursTools } from "../src/mcp/tools/hours";
 import { registerInvoiceTools } from "../src/mcp/tools/invoices";
 import { registerProposalTools } from "../src/mcp/tools/proposals";
 import { registerActivityTools as registerActivityToolsRaw } from "../src/mcp/tools/activities";
-import { registerUserTools } from "../src/mcp/tools/users";
+import { registerUserTools as registerUserToolsRaw } from "../src/mcp/tools/users";
 import { registerContactTools } from "../src/mcp/tools/contacts";
 import { registerProductTools } from "../src/mcp/tools/products";
 import { registerPhaseTools } from "../src/mcp/tools/phases";
@@ -36,6 +36,17 @@ const registerActivityTools = (
   e: Parameters<typeof registerActivityToolsRaw>[1],
   p: Parameters<typeof registerActivityToolsRaw>[2],
 ) => registerActivityToolsRaw(s, e, p, testAuthz);
+
+const registerLookupTools = (
+  s: Parameters<typeof registerLookupToolsRaw>[0],
+  e: Parameters<typeof registerLookupToolsRaw>[1],
+  p: Parameters<typeof registerLookupToolsRaw>[2],
+) => registerLookupToolsRaw(s, e, p, testAuthz);
+
+const registerUserTools = (
+  s: Parameters<typeof registerUserToolsRaw>[0],
+  e: Parameters<typeof registerUserToolsRaw>[1],
+) => registerUserToolsRaw(s, e, testAuthz);
 
 const registerResourceAllocationTools = (
   s: Parameters<typeof registerResourceAllocationToolsRaw>[0],

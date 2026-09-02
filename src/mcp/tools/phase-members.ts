@@ -43,15 +43,21 @@ export function registerPhaseMemberTools(server: McpServer, env: Env, authz: Cal
     },
     async (args) => {
       const limit = args.limit ?? 100;
+      // Non-admins never see inactive users, even if they explicitly ask
+      // for isUserActive: false — force it, don't just default it.
+      const isUserActive = authz.isFullAccess ? args.isUserActive : true;
       const rows = await severaPaginate<PhaseMemberOutputModel>(env, "/v1/phasemembers", {
         query: {
-          ...(args.isUserActive != null ? { isUserActive: args.isUserActive } : {}),
+          ...(isUserActive != null ? { isUserActive } : {}),
           ...(args.changedSince ? { changedSince: `${args.changedSince}T00:00:00Z` } : {}),
           rowCount: Math.min(1000, Math.max(limit, 100)),
         },
       });
 
-      const hits = rows
+      // Defense-in-depth: don't rely solely on the server-side filter above.
+      const visible = authz.isFullAccess ? rows : rows.filter((m) => m.isActive !== false);
+
+      const hits = visible
         .filter((m) => {
           if (args.userGuid && m.user?.guid !== args.userGuid) return false;
           if (args.phaseGuid && m.phase?.guid !== args.phaseGuid) return false;
@@ -61,7 +67,7 @@ export function registerPhaseMemberTools(server: McpServer, env: Env, authz: Cal
 
       if (!hits.length) return toText("No phase members match those filters.");
       return toText(
-        `${hits.length} member(s)${hits.length < rows.length ? ` (of ${rows.length} fetched)` : ""}:\n${hits.map((m) => renderMemberRow(m, authz)).join("\n")}`,
+        `${hits.length} member(s)${hits.length < visible.length ? ` (of ${visible.length} fetched)` : ""}:\n${hits.map((m) => renderMemberRow(m, authz)).join("\n")}`,
       );
     },
   );
