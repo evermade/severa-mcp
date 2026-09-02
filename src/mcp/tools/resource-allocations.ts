@@ -7,7 +7,7 @@ import type {
 } from "../../severa/types";
 import type { Env } from "../../env";
 import { toText } from "../format";
-import { filterVisible, type CallerAuthz } from "../../authz";
+import { filterVisible, requireVisibleIfRequested, type CallerAuthz } from "../../authz";
 
 const READ_ANNOTATIONS = {
   readOnlyHint: true,
@@ -52,6 +52,7 @@ export function registerResourceAllocationTools(server: McpServer, env: Env, aut
     },
     async (args) => {
       const limit = args.limit ?? 100;
+      requireVisibleIfRequested(authz, args.userGuid, "view resource allocations");
       const rows = await severaPaginate<ResourceAllocationOutputModel>(
         env,
         "/v1/resourceallocations",

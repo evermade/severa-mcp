@@ -14,7 +14,9 @@ import { toText } from "../format";
 import {
   effectiveUserGuids,
   filterVisible,
+  requireEffectiveVisible,
   requireVisible,
+  requireVisibleIfRequested,
   type CallerAuthz,
 } from "../../authz";
 
@@ -153,6 +155,7 @@ export function registerHoursListTools(server: McpServer, env: Env, authz: Calle
     },
     async (args) => {
       const limit = args.limit ?? 100;
+      requireVisibleIfRequested(authz, args.userGuid, "view work hours");
       const rows = await severaPaginate<WorkHourOutputModel>(env, "/v1/workhours", {
         query: {
           ...(args.eventDateStart ? { eventDateStart: args.eventDateStart } : {}),
@@ -214,6 +217,7 @@ export function registerHoursListTools(server: McpServer, env: Env, authz: Calle
     },
     async (args) => {
       const limit = args.limit ?? 100;
+      requireVisibleIfRequested(authz, args.userGuid, "view time entries");
       const rows = await severaPaginate<TimeEntryModel>(env, "/v1/timeentries", {
         query: {
           ...(args.phaseGuid ? { phaseGuid: args.phaseGuid } : {}),
@@ -276,10 +280,7 @@ export function registerHoursListTools(server: McpServer, env: Env, authz: Calle
         ...(args.userGuids ?? []),
       ];
       const userGuids = effectiveUserGuids(authz, requestedGuids.length ? requestedGuids : undefined);
-      // effectiveUserGuids returns [] (as opposed to undefined) when the
-      // caller asked for someone outside their visibility — that must
-      // short-circuit to "no results", not fall through to an unfiltered query.
-      if (userGuids && userGuids.length === 0) return toText("No workdays match those filters.");
+      requireEffectiveVisible(requestedGuids.length ? requestedGuids : undefined, userGuids, "view workdays");
       const rows = await severaPaginate<WorkdayOutputModel>(env, "/v1/workdays", {
         query: {
           ...(args.startDate ? { startDate: args.startDate } : {}),

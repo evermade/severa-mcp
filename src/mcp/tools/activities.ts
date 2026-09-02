@@ -7,7 +7,7 @@ import type { ActivityModel } from "../../severa/types";
 import type { Env } from "../../env";
 import type { SessionProps } from "../../auth/session";
 import { toText } from "../format";
-import { effectiveUserGuids, filterVisible, type CallerAuthz } from "../../authz";
+import { effectiveUserGuids, requireEffectiveVisible, type CallerAuthz } from "../../authz";
 
 const READ_ANNOTATIONS = {
   readOnlyHint: true,
@@ -87,10 +87,7 @@ export function registerActivityTools(
         ? [await requireSeveraUserGuid(env, props.email)]
         : args.userGuids;
       const userGuids = effectiveUserGuids(authz, requestedGuids);
-      // effectiveUserGuids returns [] (as opposed to undefined) when the
-      // caller asked for someone outside their visibility — that must
-      // short-circuit to "no results", not fall through to an unfiltered query.
-      if (userGuids && userGuids.length === 0) return toText("No activities match those filters.");
+      requireEffectiveVisible(requestedGuids ?? undefined, userGuids, "view activities");
 
       const normalizeDate = (v?: string | null): string | undefined => {
         if (!v) return undefined;

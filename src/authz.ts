@@ -110,6 +110,33 @@ export function requireVisible(authz: CallerAuthz, guid: Guid | undefined, what:
   }
 }
 
+// Same check as requireVisible, but a no-op when the caller didn't ask for
+// anyone in particular (guid undefined) — for list tools where an explicit
+// userGuid argument names a specific target, but omitting it just means
+// "show me what I'm allowed to see" rather than "show me nobody."
+export function requireVisibleIfRequested(
+  authz: CallerAuthz,
+  guid: Guid | null | undefined,
+  what: string,
+): void {
+  if (guid != null) requireVisible(authz, guid, what);
+}
+
+// For list tools that accept an array of target GUIDs: throws a clear
+// denial when the caller explicitly asked for specific people and every one
+// of them was outside their visibility (rather than silently returning an
+// empty "no results" — which reads as "nothing matched your filters," not
+// "you're not allowed to see this," and leaves the LLM to guess why).
+export function requireEffectiveVisible(
+  requested: Guid[] | undefined,
+  effective: Guid[] | undefined,
+  what: string,
+): void {
+  if (requested?.length && !effective?.length) {
+    throw new AccessDeniedError(`You can only ${what} for yourself.`);
+  }
+}
+
 // A caller whose role isn't recognized gets exactly one tool explaining why,
 // rather than a broken/empty MCP connection.
 export function registerAccessDeniedTool(server: McpServer, message: string): void {

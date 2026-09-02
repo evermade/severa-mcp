@@ -96,7 +96,7 @@ describe("self-only tier hides other users' rows", () => {
     expect(c?.url).toContain(`userGuids=${SELF_GUID}`);
   });
 
-  it("severa_list_activities returns no results (not everyone's) when asked for someone outside scope", async () => {
+  it("severa_list_activities gives a clear permission-denied message (not an ambiguous empty result) when asked for someone outside scope", async () => {
     mockSeveraFetch({ routes: [{ path: "/v1/activities", response: [] }] });
     const registerActivitiesSelfOnly = (
       s: Parameters<typeof registerActivityTools>[0],
@@ -108,7 +108,72 @@ describe("self-only tier hides other users' rows", () => {
       { userGuids: [OTHER_GUID] },
       [registerActivitiesSelfOnly],
     );
-    expect(text).toBe("No activities match those filters.");
+    expect(text).toMatch(/you can only view activities for yourself/i);
+  });
+});
+
+describe("explicit out-of-scope requests get a clear permission-denied message, not an ambiguous empty result", () => {
+  const registerResourceAllocationsSelfOnly = (
+    s: Parameters<typeof registerResourceAllocationTools>[0],
+    e: Parameters<typeof registerResourceAllocationTools>[1],
+  ) => registerResourceAllocationTools(s, e, selfOnlyAuthz);
+  const registerResourceAllocationsBusinessOnly = (
+    s: Parameters<typeof registerResourceAllocationTools>[0],
+    e: Parameters<typeof registerResourceAllocationTools>[1],
+  ) => registerResourceAllocationTools(s, e, businessOnlyAuthz);
+
+  it("severa_list_work_hours denies an explicit request for someone else's GUID", async () => {
+    mockSeveraFetch({ routes: [{ path: "/v1/workhours", response: [] }] });
+    const { text } = await callTool("severa_list_work_hours", { userGuid: OTHER_GUID }, [
+      registerHoursSelfOnly,
+    ]);
+    expect(text).toMatch(/you can only view work hours for yourself/i);
+  });
+
+  it("severa_list_time_entries denies an explicit request for someone else's GUID", async () => {
+    mockSeveraFetch({ routes: [{ path: "/v1/timeentries", response: [] }] });
+    const { text } = await callTool("severa_list_time_entries", { userGuid: OTHER_GUID }, [
+      registerHoursSelfOnly,
+    ]);
+    expect(text).toMatch(/you can only view time entries for yourself/i);
+  });
+
+  it("severa_list_workdays denies an explicit request for someone else's GUID", async () => {
+    mockSeveraFetch({ routes: [{ path: "/v1/workdays", response: [] }] });
+    const { text } = await callTool("severa_list_workdays", { userGuid: OTHER_GUID }, [
+      registerHoursSelfOnly,
+    ]);
+    expect(text).toMatch(/you can only view workdays for yourself/i);
+  });
+
+  it("severa_list_resource_allocations denies an explicit request for someone else's GUID", async () => {
+    mockSeveraFetch({ routes: [{ path: "/v1/resourceallocations", response: [] }] });
+    const { text } = await callTool(
+      "severa_list_resource_allocations",
+      { userGuid: OTHER_GUID },
+      [registerResourceAllocationsSelfOnly],
+    );
+    expect(text).toMatch(/you can only view resource allocations for yourself/i);
+  });
+
+  it("business-only tier can freely request another user's GUID (broad visibility, no denial)", async () => {
+    mockSeveraFetch({
+      routes: [
+        {
+          path: "/v1/resourceallocations",
+          response: [
+            { guid: "1", user: { guid: OTHER_GUID, firstName: "Sam", lastName: "Sample" }, hoursAllocated: 40 },
+          ],
+        },
+      ],
+    });
+    const { text } = await callTool(
+      "severa_list_resource_allocations",
+      { userGuid: OTHER_GUID },
+      [registerResourceAllocationsBusinessOnly],
+    );
+    expect(text).toContain("Sam Sample");
+    expect(text).not.toMatch(/you can only/i);
   });
 });
 
