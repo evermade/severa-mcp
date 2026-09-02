@@ -15,6 +15,7 @@ import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { vi } from "vitest";
 import type { Env } from "../env";
 import type { SessionProps } from "../auth/session";
+import type { CallerAuthz } from "../authz";
 
 export function makeMemoryKV(): KVNamespace {
   const store = new Map<string, string>();
@@ -58,6 +59,16 @@ export const testProps: SessionProps = {
   email: "test@genero.fi",
   name: "Test User",
   googleSub: "test-sub",
+};
+
+// Default authz for tests that don't care about role scoping — full,
+// unrestricted access (matches the mechanism's unconfigured default).
+export const testAuthz: CallerAuthz = {
+  isFullAccess: true,
+  rowScope: "all",
+  selfGuid: null,
+  blockedToolKeys: new Set(),
+  canUseQuery: true,
 };
 
 export interface Route {

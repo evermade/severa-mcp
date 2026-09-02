@@ -15,6 +15,18 @@
 #   ./eval/run.sh                      # run all cases
 #   ./eval/run.sh "pipeline"           # run cases whose name matches
 #   PROMPT="..." EXPECT="tool1,tool2" ./eval/run.sh -        # ad-hoc one-off
+#
+# Testing role-derived permission scoping (src/authz.ts): the stdio server's
+# identity/role for a run is fixed by .dev.vars' SEVERA_USER_EMAIL plus
+# whatever SEVERA_*_ROLES vars are set (see wrangler.toml's comment block).
+# This harness only asserts "an expected tool was called" (loose, by
+# design) — it can't assert a tool is *absent*, so verifying the
+# business-only/self-only tiers actually withhold tools (e.g. no
+# severa_query, no travel/overtime tools for a business-only test user) is
+# a manual check: point SEVERA_USER_EMAIL at a real user in the tier you
+# want to exercise, set the matching SEVERA_*_ROLES vars, run a case like
+# "colleague_hours" below, and inspect the full tool list Claude was
+# offered (visible in --verbose output) rather than just the pass/fail line.
 
 set -euo pipefail
 
@@ -39,6 +51,7 @@ CASES=(
   "forecast_gap|Which active projects have no billing forecast in the next 90 days?|severa_projects_missing_billing_forecast"
   "my_hours|How many hours did I log last week?|severa_get_my_hours"
   "customer_search|Find the customer Kesko and show me their open projects.|severa_find_customer,severa_list_projects"
+  "colleague_hours|How many hours did my colleague log last week? Look up any active user and check their hours.|severa_list_users,severa_find_user,severa_list_work_hours,severa_query"
 )
 
 FILTER="${1:-}"

@@ -7,6 +7,7 @@ import type {
 } from "../../severa/types";
 import type { Env } from "../../env";
 import { toText } from "../format";
+import { filterVisible, type CallerAuthz } from "../../authz";
 
 const READ_ANNOTATIONS = {
   readOnlyHint: true,
@@ -18,7 +19,7 @@ const READ_ANNOTATIONS = {
 const isoDate = () => z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 const uuid = () => z.string().uuid();
 
-export function registerResourceAllocationTools(server: McpServer, env: Env) {
+export function registerResourceAllocationTools(server: McpServer, env: Env, authz: CallerAuthz) {
   server.registerTool(
     "severa_list_resource_allocations",
     {
@@ -62,7 +63,8 @@ export function registerResourceAllocationTools(server: McpServer, env: Env) {
         },
       );
 
-      const hits = rows
+      const visible = filterVisible(authz, rows, (r) => r.user?.guid);
+      const hits = visible
         .filter((r) => {
           if (args.projectGuid && r.project?.guid !== args.projectGuid) return false;
           if (args.phaseGuid && r.phase?.guid !== args.phaseGuid) return false;
@@ -79,7 +81,7 @@ export function registerResourceAllocationTools(server: McpServer, env: Env) {
 
       if (!hits.length) return toText("No resource allocations match those filters.");
       return toText(
-        `${hits.length} allocation(s)${hits.length < rows.length ? ` (of ${rows.length} fetched)` : ""}:\n${hits.map(renderAllocationRow).join("\n")}`,
+        `${hits.length} allocation(s)${hits.length < visible.length ? ` (of ${visible.length} fetched)` : ""}:\n${hits.map(renderAllocationRow).join("\n")}`,
       );
     },
   );

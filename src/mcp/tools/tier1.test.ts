@@ -9,13 +9,19 @@ import usersFx from "../../__fixtures__/severa/users.active.json";
 import contactsFx from "../../__fixtures__/severa/contacts.active.json";
 import productsFx from "../../__fixtures__/severa/products.active.json";
 import phasesFx from "../../__fixtures__/severa/phases.project.json";
-import { callTool, listTools, mockSeveraFetch } from "../../test/harness";
+import { callTool, listTools, mockSeveraFetch, testAuthz } from "../../test/harness";
 import { registerProposalTools } from "./proposals";
-import { registerActivityTools } from "./activities";
+import { registerActivityTools as registerActivityToolsRaw } from "./activities";
 import { registerUserTools } from "./users";
 import { registerContactTools } from "./contacts";
 import { registerProductTools } from "./products";
 import { registerPhaseTools } from "./phases";
+
+const registerActivityTools = (
+  s: Parameters<typeof registerActivityToolsRaw>[0],
+  e: Parameters<typeof registerActivityToolsRaw>[1],
+  p: Parameters<typeof registerActivityToolsRaw>[2],
+) => registerActivityToolsRaw(s, e, p, testAuthz);
 
 describe("severa_list_proposals", () => {
   beforeEach(() => {

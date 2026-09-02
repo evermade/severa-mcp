@@ -11,6 +11,12 @@ import type {
 import type { Env } from "../../env";
 import type { SessionProps } from "../../auth/session";
 import { toText } from "../format";
+import {
+  effectiveUserGuids,
+  filterVisible,
+  requireVisible,
+  type CallerAuthz,
+} from "../../authz";
 
 const READ_ANNOTATIONS = {
   readOnlyHint: true,
@@ -26,7 +32,12 @@ const WRITE_ANNOTATIONS = {
   openWorldHint: true,
 };
 
-export function registerHoursReadTools(server: McpServer, env: Env, props: SessionProps) {
+export function registerHoursReadTools(
+  server: McpServer,
+  env: Env,
+  props: SessionProps,
+  authz: CallerAuthz,
+) {
   server.registerTool(
     "severa_get_my_hours",
     {
@@ -82,10 +93,11 @@ export function registerHoursReadTools(server: McpServer, env: Env, props: Sessi
           query: { isBillable: true, isBilled: false, rowCount: 1000 },
         },
       );
-      if (!rows.length) return toText("No unbilled hours on this project.");
-      const total = rows.reduce((s, r) => s + r.quantity, 0);
+      const visible = filterVisible(authz, rows, (r) => r.user?.guid);
+      if (!visible.length) return toText("No unbilled hours on this project.");
+      const total = visible.reduce((s, r) => s + r.quantity, 0);
       const byUser = new Map<string, number>();
-      for (const r of rows) {
+      for (const r of visible) {
         const name =
           [r.user.firstName, r.user.lastName].filter(Boolean).join(" ") ||
           r.user.email ||
@@ -105,7 +117,7 @@ export function registerHoursReadTools(server: McpServer, env: Env, props: Sessi
 const isoDate = () => z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 const uuid = () => z.string().uuid();
 
-export function registerHoursListTools(server: McpServer, env: Env) {
+export function registerHoursListTools(server: McpServer, env: Env, authz: CallerAuthz) {
   server.registerTool(
     "severa_list_work_hours",
     {
@@ -153,7 +165,8 @@ export function registerHoursListTools(server: McpServer, env: Env) {
         },
       });
 
-      const hits = rows
+      const visible = filterVisible(authz, rows, (r) => r.user?.guid);
+      const hits = visible
         .filter((r) => {
           if (args.userGuid && r.user?.guid !== args.userGuid) return false;
           if (args.projectGuid && r.project?.guid !== args.projectGuid) return false;
@@ -166,7 +179,7 @@ export function registerHoursListTools(server: McpServer, env: Env) {
       if (!hits.length) return toText("No work-hour entries match those filters.");
       const totalHours = hits.reduce((s, r) => s + (r.quantity ?? 0), 0);
       return toText(
-        `${hits.length} entr${hits.length === 1 ? "y" : "ies"}${hits.length < rows.length ? ` (of ${rows.length} fetched)` : ""} — total ${totalHours.toFixed(2)}h:\n${hits.map(renderWorkHourRow).join("\n")}`,
+        `${hits.length} entr${hits.length === 1 ? "y" : "ies"}${hits.length < visible.length ? ` (of ${visible.length} fetched)` : ""} — total ${totalHours.toFixed(2)}h:\n${hits.map(renderWorkHourRow).join("\n")}`,
       );
     },
   );
@@ -210,7 +223,8 @@ export function registerHoursListTools(server: McpServer, env: Env) {
         },
       });
 
-      const hits = rows
+      const visible = filterVisible(authz, rows, (r) => r.user?.guid);
+      const hits = visible
         .filter((r) => {
           if (args.userGuid && r.user?.guid !== args.userGuid) return false;
           if (args.eventDateStart || args.eventDateEnd) {
@@ -225,7 +239,7 @@ export function registerHoursListTools(server: McpServer, env: Env) {
 
       if (!hits.length) return toText("No time entries match those filters.");
       return toText(
-        `${hits.length} entr${hits.length === 1 ? "y" : "ies"}${hits.length < rows.length ? ` (of ${rows.length} fetched)` : ""}:\n${hits.map(renderTimeEntryRow).join("\n")}`,
+        `${hits.length} entr${hits.length === 1 ? "y" : "ies"}${hits.length < visible.length ? ` (of ${visible.length} fetched)` : ""}:\n${hits.map(renderTimeEntryRow).join("\n")}`,
       );
     },
   );
@@ -257,15 +271,20 @@ export function registerHoursListTools(server: McpServer, env: Env) {
     },
     async (args) => {
       const limit = args.limit ?? 100;
-      const userGuids = [
+      const requestedGuids = [
         ...(args.userGuid ? [args.userGuid] : []),
         ...(args.userGuids ?? []),
       ];
+      const userGuids = effectiveUserGuids(authz, requestedGuids.length ? requestedGuids : undefined);
+      // effectiveUserGuids returns [] (as opposed to undefined) when the
+      // caller asked for someone outside their visibility — that must
+      // short-circuit to "no results", not fall through to an unfiltered query.
+      if (userGuids && userGuids.length === 0) return toText("No workdays match those filters.");
       const rows = await severaPaginate<WorkdayOutputModel>(env, "/v1/workdays", {
         query: {
           ...(args.startDate ? { startDate: args.startDate } : {}),
           ...(args.endDate ? { endDate: args.endDate } : {}),
-          ...(userGuids.length ? { userGuids } : {}),
+          ...(userGuids?.length ? { userGuids } : {}),
           ...(args.isCompleted != null ? { isCompleted: args.isCompleted } : {}),
           ...(args.changedSince ? { changedSince: `${args.changedSince}T00:00:00Z` } : {}),
           rowCount: Math.min(1000, Math.max(limit, 100)),
@@ -321,7 +340,12 @@ function renderWorkdayRow(r: WorkdayOutputModel): string {
   return `- ${parts.join(" — ")} — \`${r.guid}\``;
 }
 
-export function registerHoursWriteTools(server: McpServer, env: Env, props: SessionProps) {
+export function registerHoursWriteTools(
+  server: McpServer,
+  env: Env,
+  props: SessionProps,
+  authz: CallerAuthz,
+) {
   server.registerTool(
     "severa_log_hours",
     {
@@ -410,6 +434,9 @@ export function registerHoursWriteTools(server: McpServer, env: Env, props: Sess
 
       if (!ops.length) return toText("No changes provided — specify at least one field to update.");
 
+      const existing = await severaFetch<WorkHourOutputModel>(env, `/v1/workhours/${hoursGuid}`);
+      requireVisible(authz, existing.user?.guid, "update this entry");
+
       await severaFetch<unknown>(env, `/v1/workhours/${hoursGuid}`, {
         method: "PATCH",
         body: ops,
@@ -433,6 +460,9 @@ export function registerHoursWriteTools(server: McpServer, env: Env, props: Sess
       },
     },
     async ({ hoursGuid }) => {
+      const existing = await severaFetch<WorkHourOutputModel>(env, `/v1/workhours/${hoursGuid}`);
+      requireVisible(authz, existing.user?.guid, "delete this entry");
+
       await severaFetch<unknown>(env, `/v1/workhours/${hoursGuid}`, { method: "DELETE" });
       return toText(`Deleted work-hour entry \`${hoursGuid}\`.`);
     },
@@ -463,6 +493,7 @@ export function registerHoursWriteTools(server: McpServer, env: Env, props: Sess
     },
     async ({ date, isCompleted, userGuid }) => {
       const effectiveUser = userGuid ?? (await requireSeveraUserGuid(env, props.email));
+      requireVisible(authz, effectiveUser, "close/reopen this workday");
       const effectiveDate = date ?? helsinkiToday();
       const completed = isCompleted ?? true;
       await severaFetch<unknown>(
@@ -484,9 +515,9 @@ export function registerHoursTools(
   server: McpServer,
   env: Env,
   props: SessionProps,
-  opts: { enableWrites: boolean },
+  opts: { enableWrites: boolean; authz: CallerAuthz },
 ) {
-  registerHoursReadTools(server, env, props);
-  registerHoursListTools(server, env);
-  if (opts.enableWrites) registerHoursWriteTools(server, env, props);
+  registerHoursReadTools(server, env, props, opts.authz);
+  registerHoursListTools(server, env, opts.authz);
+  if (opts.enableWrites) registerHoursWriteTools(server, env, props, opts.authz);
 }

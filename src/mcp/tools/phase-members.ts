@@ -4,6 +4,7 @@ import { severaPaginate } from "../../severa/client";
 import type { PhaseMemberOutputModel } from "../../severa/types";
 import type { Env } from "../../env";
 import { toText } from "../format";
+import type { CallerAuthz } from "../../authz";
 
 const READ_ANNOTATIONS = {
   readOnlyHint: true,
@@ -14,7 +15,7 @@ const READ_ANNOTATIONS = {
 
 const isoDate = () => z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 
-export function registerPhaseMemberTools(server: McpServer, env: Env) {
+export function registerPhaseMemberTools(server: McpServer, env: Env, authz: CallerAuthz) {
   server.registerTool(
     "severa_list_phase_members",
     {
@@ -60,21 +61,26 @@ export function registerPhaseMemberTools(server: McpServer, env: Env) {
 
       if (!hits.length) return toText("No phase members match those filters.");
       return toText(
-        `${hits.length} member(s)${hits.length < rows.length ? ` (of ${rows.length} fetched)` : ""}:\n${hits.map(renderMemberRow).join("\n")}`,
+        `${hits.length} member(s)${hits.length < rows.length ? ` (of ${rows.length} fetched)` : ""}:\n${hits.map((m) => renderMemberRow(m, authz)).join("\n")}`,
       );
     },
   );
 }
 
-function renderMemberRow(m: PhaseMemberOutputModel): string {
+function renderMemberRow(m: PhaseMemberOutputModel, authz: CallerAuthz): string {
   const who =
     m.user?.name ||
     [m.user?.firstName, m.user?.lastName].filter(Boolean).join(" ") ||
     "(no user)";
+  // Employment-relationship info stays hidden regardless of row-visibility
+  // scope — a caller with broad visibility (e.g. for resourcing) still
+  // shouldn't see everyone's contract type, only their own.
+  const canSeeContractTitle = authz.isFullAccess || m.user?.guid === authz.selfGuid;
+  const contractTitle = canSeeContractTitle ? m.currentWorkContractTitle : m.currentWorkContractTitle ? "(restricted)" : undefined;
   const parts = [
     `**${who}**`,
     m.phase?.name,
-    m.currentWorkContractTitle,
+    contractTitle,
     m.isActive === false ? "(inactive)" : undefined,
   ].filter(Boolean);
   return `- ${parts.join(" — ")} — \`${m.guid}\``;

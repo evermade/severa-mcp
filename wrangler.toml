@@ -14,8 +14,8 @@ compatibility_flags = ["nodejs_compat"]
 # Then paste the returned IDs below.
 
 kv_namespaces = [
-  { binding = "OAUTH_KV", id = "REPLACE_ME_OAUTH_KV_ID" },
-  { binding = "CACHE_KV", id = "REPLACE_ME_CACHE_KV_ID" },
+  { binding = "OAUTH_KV", id = "0f4cbc5ccd4b49baa0b6056f5dfdc306" },
+  { binding = "CACHE_KV", id = "d835cb2f570a482491945b0a64c37b5a" },
 ]
 
 [durable_objects]
@@ -31,14 +31,14 @@ new_sqlite_classes = ["SeveraMcpAgent"]
 SEVERA_ENV = "prod"
 SEVERA_API_BASE_STAG = "https://api.severa.stag.visma.com/rest-api"
 SEVERA_API_BASE_PROD = "https://api.severa.visma.com/rest-api"
-GOOGLE_HOSTED_DOMAIN = "genero.fi"
+GOOGLE_HOSTED_DOMAIN = "evermade.fi"
 ENABLE_WRITE_TOOLS = "false"
 
 [env.staging]
 name = "severa-mcp-staging"
 kv_namespaces = [
-  { binding = "OAUTH_KV", id = "f111cd4715f340d7aacc6508ec703304" },
-  { binding = "CACHE_KV", id = "1156e1bd892c4ccfb6ecd1152198a07a" },
+  { binding = "OAUTH_KV", id = "fa1aea42fd1d4b5d8516d3d93b48fd7c" },
+  { binding = "CACHE_KV", id = "ccc93168c70844c7a0d77300c97c88c7" },
 ]
 
 [env.staging.durable_objects]
@@ -51,17 +51,17 @@ tag = "v1"
 new_sqlite_classes = ["SeveraMcpAgent"]
 
 [env.staging.vars]
-SEVERA_ENV = "prod"
+SEVERA_ENV = "stag"
 SEVERA_API_BASE_STAG = "https://api.severa.stag.visma.com/rest-api"
 SEVERA_API_BASE_PROD = "https://api.severa.visma.com/rest-api"
-GOOGLE_HOSTED_DOMAIN = "genero.fi"
+GOOGLE_HOSTED_DOMAIN = "evermade.fi"
 ENABLE_WRITE_TOOLS = "false"
 
 [env.production]
 name = "severa-mcp"
 kv_namespaces = [
-  { binding = "OAUTH_KV", id = "d0ae1564e4134f93b8ba874fb3c45c99" },
-  { binding = "CACHE_KV", id = "e04957c6ad1b4700abef87625ea548ab" },
+  { binding = "OAUTH_KV", id = "bb71ae63004d47c68d0f94e139eeb745" },
+  { binding = "CACHE_KV", id = "de16d5cea0f44569ac48a47c010c2007" },
 ]
 
 [env.production.durable_objects]
@@ -87,3 +87,15 @@ ENABLE_WRITE_TOOLS = "false"
 #   GOOGLE_OAUTH_CLIENT_SECRET
 #   COOKIE_ENCRYPTION_KEY
 #   SEVERA_EMAIL_MAP  - JSON map of login email → Severa email, e.g. '{"you@co.com":"you@co.com"}'
+#
+#   Role-derived permission scoping (src/authz.ts) — comma-separated lists of
+#   normalized Severa `permissionProfile.name` values (a " - Team" suffix, e.g.
+#   "Account Director - Rytmiryhmä", is stripped before matching; case-insensitive).
+#   If SEVERA_FULL_ACCESS_ROLES, SEVERA_BUSINESS_ONLY_ROLES, and
+#   SEVERA_SELF_ONLY_ROLES are ALL unset, this is a no-op — every caller keeps
+#   today's unrestricted access. Once any is set, a role not listed in any of
+#   the three is rejected outright.
+#   SEVERA_FULL_ACCESS_ROLES          - e.g. "Pääkäyttäjä" — sees everyone, every tool, incl. severa_query
+#   SEVERA_BUSINESS_ONLY_ROLES        - e.g. "Account Director,Project Manager" — sees everyone within allowed tool categories
+#   SEVERA_BUSINESS_ONLY_BLOCKED_TOOLS - e.g. "travels,overtimes" — tool-file basenames not registered for the roles above
+#   SEVERA_SELF_ONLY_ROLES            - e.g. "Employee" — every tool available, but personal-data tools show only the caller's own rows
