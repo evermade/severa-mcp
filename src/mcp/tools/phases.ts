@@ -4,7 +4,9 @@ import { severaPaginate } from "../../severa/client";
 import { matches } from "../../severa/reference-cache";
 import type { PhaseOutputModel } from "../../severa/types";
 import type { Env } from "../../env";
+import type { SessionProps } from "../../auth/session";
 import { toText } from "../format";
+import { requireCategoryAccess } from "../../authz";
 
 const READ_ANNOTATIONS = {
   readOnlyHint: true,
@@ -16,7 +18,7 @@ const READ_ANNOTATIONS = {
 const isoDate = () => z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 const uuid = () => z.string().uuid();
 
-export function registerPhaseTools(server: McpServer, env: Env) {
+export function registerPhaseTools(server: McpServer, env: Env, props: SessionProps) {
   server.registerTool(
     "severa_list_phases",
     {
@@ -47,6 +49,7 @@ export function registerPhaseTools(server: McpServer, env: Env) {
       annotations: { ...READ_ANNOTATIONS, title: "List phases" },
     },
     async (args) => {
+      await requireCategoryAccess(env, props, "phases");
       const limit = args.limit ?? 100;
       const projectGuids = [
         ...(args.projectGuid ? [args.projectGuid] : []),

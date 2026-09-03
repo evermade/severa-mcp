@@ -134,34 +134,37 @@ try {
 }
 
 if (authz) {
+  // Best-effort, eventually-consistent tool-list tailoring only — not the
+  // security boundary. That's now inside each handler (requireCategoryAccess /
+  // resolveCallerAuthz called fresh per call).
   const enableWrites = env.ENABLE_WRITE_TOOLS === "true";
   const allow = (key: string) => !authz.blockedToolKeys.has(key);
 
-  if (allow("lookup")) registerLookupTools(server, env, props, authz);
+  if (allow("lookup")) registerLookupTools(server, env, props);
   if (allow("cases")) registerCaseTools(server, env, props);
-  if (allow("billing-forecast")) registerBillingForecastTools(server, env);
-  if (allow("hours")) registerHoursTools(server, env, props, { enableWrites, authz });
-  if (allow("invoices")) registerInvoiceTools(server, env);
-  if (allow("proposals")) registerProposalTools(server, env);
-  if (allow("activities")) registerActivityTools(server, env, props, authz);
-  if (allow("users")) registerUserTools(server, env, authz);
-  if (allow("contacts")) registerContactTools(server, env);
-  if (allow("products")) registerProductTools(server, env);
-  if (allow("phases")) registerPhaseTools(server, env);
-  if (allow("resource-allocations")) registerResourceAllocationTools(server, env, authz);
-  if (allow("fees")) registerFeeTools(server, env);
-  if (allow("travels")) registerTravelTools(server, env);
-  if (allow("overtimes")) registerOvertimeTools(server, env);
-  if (allow("holidays")) registerHolidayTools(server, env);
-  if (allow("roles")) registerRoleTools(server, env);
-  if (allow("phase-members")) registerPhaseMemberTools(server, env, authz);
-  if (allow("root-phases")) registerRootPhaseTools(server, env);
-  if (allow("contact-communications")) registerContactCommunicationTools(server, env);
-  if (allow("files")) registerFileTools(server, env);
-  if (allow("accounting")) registerAccountingTools(server, env);
-  if (allow("customer-segments")) registerCustomerSegmentTools(server, env);
-  if (enableWrites && allow("projects-write")) registerProjectsWriteTools(server, env);
-  if (authz.canUseQuery) registerQueryTools(server, env);
+  if (allow("billing-forecast")) registerBillingForecastTools(server, env, props);
+  if (allow("hours")) registerHoursTools(server, env, props, { enableWrites });
+  if (allow("invoices")) registerInvoiceTools(server, env, props);
+  if (allow("proposals")) registerProposalTools(server, env, props);
+  if (allow("activities")) registerActivityTools(server, env, props);
+  if (allow("users")) registerUserTools(server, env, props);
+  if (allow("contacts")) registerContactTools(server, env, props);
+  if (allow("products")) registerProductTools(server, env, props);
+  if (allow("phases")) registerPhaseTools(server, env, props);
+  if (allow("resource-allocations")) registerResourceAllocationTools(server, env, props);
+  if (allow("fees")) registerFeeTools(server, env, props);
+  if (allow("travels")) registerTravelTools(server, env, props);
+  if (allow("overtimes")) registerOvertimeTools(server, env, props);
+  if (allow("holidays")) registerHolidayTools(server, env, props);
+  if (allow("roles")) registerRoleTools(server, env, props);
+  if (allow("phase-members")) registerPhaseMemberTools(server, env, props);
+  if (allow("root-phases")) registerRootPhaseTools(server, env, props);
+  if (allow("contact-communications")) registerContactCommunicationTools(server, env, props);
+  if (allow("files")) registerFileTools(server, env, props);
+  if (allow("accounting")) registerAccountingTools(server, env, props);
+  if (allow("customer-segments")) registerCustomerSegmentTools(server, env, props);
+  if (enableWrites && allow("projects-write")) registerProjectsWriteTools(server, env, props);
+  if (authz.canUseQuery) registerQueryTools(server, env, props);
   registerResources(server, env, props);
 }
 

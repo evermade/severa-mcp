@@ -14,25 +14,25 @@
 // every use-site produces a fresh Zod schema and the generator inlines the
 // pattern directly on the property. This test enforces that property.
 import { describe, it, expect } from "vitest";
-import { listTools, withMcpServer, testAuthz } from "../src/test/harness";
-import { registerLookupTools as registerLookupToolsRaw } from "../src/mcp/tools/lookup";
+import { listTools, withMcpServer } from "../src/test/harness";
+import { registerLookupTools } from "../src/mcp/tools/lookup";
 import { registerCaseTools } from "../src/mcp/tools/cases";
 import { registerBillingForecastTools } from "../src/mcp/tools/billing-forecast";
 import { registerHoursTools } from "../src/mcp/tools/hours";
 import { registerInvoiceTools } from "../src/mcp/tools/invoices";
 import { registerProposalTools } from "../src/mcp/tools/proposals";
-import { registerActivityTools as registerActivityToolsRaw } from "../src/mcp/tools/activities";
-import { registerUserTools as registerUserToolsRaw } from "../src/mcp/tools/users";
+import { registerActivityTools } from "../src/mcp/tools/activities";
+import { registerUserTools } from "../src/mcp/tools/users";
 import { registerContactTools } from "../src/mcp/tools/contacts";
 import { registerProductTools } from "../src/mcp/tools/products";
 import { registerPhaseTools } from "../src/mcp/tools/phases";
-import { registerResourceAllocationTools as registerResourceAllocationToolsRaw } from "../src/mcp/tools/resource-allocations";
+import { registerResourceAllocationTools } from "../src/mcp/tools/resource-allocations";
 import { registerFeeTools } from "../src/mcp/tools/fees";
 import { registerTravelTools } from "../src/mcp/tools/travels";
 import { registerOvertimeTools } from "../src/mcp/tools/overtimes";
 import { registerHolidayTools } from "../src/mcp/tools/holidays";
 import { registerRoleTools } from "../src/mcp/tools/roles";
-import { registerPhaseMemberTools as registerPhaseMemberToolsRaw } from "../src/mcp/tools/phase-members";
+import { registerPhaseMemberTools } from "../src/mcp/tools/phase-members";
 import { registerRootPhaseTools } from "../src/mcp/tools/root-phases";
 import { registerContactCommunicationTools } from "../src/mcp/tools/contact-communications";
 import { registerFileTools } from "../src/mcp/tools/files";
@@ -40,39 +40,12 @@ import { registerAccountingTools } from "../src/mcp/tools/accounting";
 import { registerCustomerSegmentTools } from "../src/mcp/tools/customer-segments";
 import { registerQueryTools } from "../src/mcp/tools/query";
 
-const registerActivityTools = (
-  s: Parameters<typeof registerActivityToolsRaw>[0],
-  e: Parameters<typeof registerActivityToolsRaw>[1],
-  p: Parameters<typeof registerActivityToolsRaw>[2],
-) => registerActivityToolsRaw(s, e, p, testAuthz);
-
-const registerLookupTools = (
-  s: Parameters<typeof registerLookupToolsRaw>[0],
-  e: Parameters<typeof registerLookupToolsRaw>[1],
-  p: Parameters<typeof registerLookupToolsRaw>[2],
-) => registerLookupToolsRaw(s, e, p, testAuthz);
-
-const registerUserTools = (
-  s: Parameters<typeof registerUserToolsRaw>[0],
-  e: Parameters<typeof registerUserToolsRaw>[1],
-) => registerUserToolsRaw(s, e, testAuthz);
-
-const registerResourceAllocationTools = (
-  s: Parameters<typeof registerResourceAllocationToolsRaw>[0],
-  e: Parameters<typeof registerResourceAllocationToolsRaw>[1],
-) => registerResourceAllocationToolsRaw(s, e, testAuthz);
-
-const registerPhaseMemberTools = (
-  s: Parameters<typeof registerPhaseMemberToolsRaw>[0],
-  e: Parameters<typeof registerPhaseMemberToolsRaw>[1],
-) => registerPhaseMemberToolsRaw(s, e, testAuthz);
-
 const registerAll = [
   registerLookupTools,
   registerCaseTools,
   registerBillingForecastTools,
   (s: Parameters<typeof registerHoursTools>[0], e: Parameters<typeof registerHoursTools>[1], p: Parameters<typeof registerHoursTools>[2]) =>
-    registerHoursTools(s, e, p, { enableWrites: false, authz: testAuthz }),
+    registerHoursTools(s, e, p, { enableWrites: false }),
   registerInvoiceTools,
   registerProposalTools,
   registerActivityTools,

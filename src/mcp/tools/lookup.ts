@@ -11,7 +11,7 @@ import type { Env } from "../../env";
 import type { SessionProps } from "../../auth/session";
 import type { CustomerModel, Money, ProjectOutputModel, UserWithName } from "../../severa/types";
 import { formatMoney, toJsonBlock, toText } from "../format";
-import type { CallerAuthz } from "../../authz";
+import { requireCategoryAccess } from "../../authz";
 import {
   applyProjectClientFilters,
   buildProjectsServerQuery,
@@ -28,12 +28,7 @@ const READ_ANNOTATIONS = {
   openWorldHint: true,
 };
 
-export function registerLookupTools(
-  server: McpServer,
-  env: Env,
-  props: SessionProps,
-  authz: CallerAuthz,
-) {
+export function registerLookupTools(server: McpServer, env: Env, props: SessionProps) {
   server.registerTool(
     "severa_find_customer",
     {
@@ -46,6 +41,7 @@ export function registerLookupTools(
       annotations: { ...READ_ANNOTATIONS, title: "Find customer" },
     },
     async ({ text, limit }) => {
+      await requireCategoryAccess(env, props, "lookup");
       const all = await getActiveCustomers(env);
       const hits = all
         .filter((c) => matches(c.name, text) || matches(c.code, text) || matches(c.number, text))
@@ -71,6 +67,7 @@ export function registerLookupTools(
       annotations: { ...READ_ANNOTATIONS, title: "Find project" },
     },
     async ({ text, customerGuid, limit }) => {
+      await requireCategoryAccess(env, props, "lookup");
       const all = await getActiveProjects(env);
       const scoped = customerGuid ? all.filter((p) => p.customer?.guid === customerGuid) : all;
       const hits = scoped
@@ -100,6 +97,7 @@ export function registerLookupTools(
       annotations: { ...READ_ANNOTATIONS, title: "Find user" },
     },
     async ({ email, text, limit }) => {
+      const authz = await requireCategoryAccess(env, props, "lookup");
       if (!email && !text) return toText("Provide at least `email` or `text`.");
       const users = email
         ? await severaPaginate<UserWithName>(env, "/v1/users", {
@@ -142,6 +140,7 @@ export function registerLookupTools(
       annotations: { ...READ_ANNOTATIONS, title: "Get project" },
     },
     async ({ projectGuid }) => {
+      await requireCategoryAccess(env, props, "lookup");
       const project = await severaFetch<ProjectOutputModel>(env, `/v1/projects/${projectGuid}`);
       return toJsonBlock(`Project: ${project.name}`, project);
     },
@@ -155,6 +154,7 @@ export function registerLookupTools(
       annotations: { ...READ_ANNOTATIONS, title: "Get customer" },
     },
     async ({ customerGuid }) => {
+      await requireCategoryAccess(env, props, "lookup");
       const customer = await severaFetch<CustomerModel>(env, `/v1/customers/${customerGuid}`);
       return toJsonBlock(`Customer: ${customer.name}`, customer);
     },
@@ -199,6 +199,7 @@ export function registerLookupTools(
       annotations: { ...READ_ANNOTATIONS, title: "List customers" },
     },
     async (args) => {
+      await requireCategoryAccess(env, props, "lookup");
       const {
         isActive,
         isInternal,
@@ -281,6 +282,7 @@ export function registerLookupTools(
       annotations: { ...READ_ANNOTATIONS, title: "List projects" },
     },
     async (args) => {
+      await requireCategoryAccess(env, props, "lookup");
       const limit = args.limit ?? 100;
       const queryOpts: { effectiveSalesPerson?: string; limit: number } = { limit };
       if (args.onlyMine) {

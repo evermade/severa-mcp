@@ -4,8 +4,9 @@ import { severaPaginate } from "../../severa/client";
 import { matches } from "../../severa/reference-cache";
 import type { UserOutputModel } from "../../severa/types";
 import type { Env } from "../../env";
+import type { SessionProps } from "../../auth/session";
 import { toText } from "../format";
-import type { CallerAuthz } from "../../authz";
+import { requireCategoryAccess } from "../../authz";
 
 const READ_ANNOTATIONS = {
   readOnlyHint: true,
@@ -17,7 +18,7 @@ const READ_ANNOTATIONS = {
 const isoDate = () => z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 const uuid = () => z.string().uuid();
 
-export function registerUserTools(server: McpServer, env: Env, authz: CallerAuthz) {
+export function registerUserTools(server: McpServer, env: Env, props: SessionProps) {
   server.registerTool(
     "severa_list_users",
     {
@@ -55,6 +56,7 @@ export function registerUserTools(server: McpServer, env: Env, authz: CallerAuth
       annotations: { ...READ_ANNOTATIONS, title: "List users" },
     },
     async (args) => {
+      const authz = await requireCategoryAccess(env, props, "users");
       const limit = args.limit ?? 100;
       // Non-admins never see inactive users, even if they explicitly ask
       // for isActive: false — force it, don't just default it.

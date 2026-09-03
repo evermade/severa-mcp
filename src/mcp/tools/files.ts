@@ -3,7 +3,9 @@ import { z } from "zod";
 import { severaPaginate } from "../../severa/client";
 import type { FileMetadataModel } from "../../severa/types";
 import type { Env } from "../../env";
+import type { SessionProps } from "../../auth/session";
 import { toText } from "../format";
+import { requireCategoryAccess } from "../../authz";
 
 const READ_ANNOTATIONS = {
   readOnlyHint: true,
@@ -19,7 +21,7 @@ const SCOPE_TO_PATH = {
   travel_expense: (guid: string) => `/v1/projecttravelexpenses/${guid}/files`,
 } as const;
 
-export function registerFileTools(server: McpServer, env: Env) {
+export function registerFileTools(server: McpServer, env: Env, props: SessionProps) {
   server.registerTool(
     "severa_list_files",
     {
@@ -47,6 +49,7 @@ export function registerFileTools(server: McpServer, env: Env) {
       annotations: { ...READ_ANNOTATIONS, title: "List file attachments" },
     },
     async (args) => {
+      await requireCategoryAccess(env, props, "files");
       const limit = args.limit ?? 100;
       const includeInternal = args.includeInternal ?? true;
       const path = SCOPE_TO_PATH[args.scope](args.parentGuid);

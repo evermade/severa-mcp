@@ -2,7 +2,10 @@ import { severaPaginate } from "./client";
 import type { SeveraEnv } from "./client";
 import type { Guid, UserOutputModel } from "./types";
 
-const CACHE_TTL_SECONDS = 24 * 60 * 60;
+// Short TTL is deliberate: this backs role-derived permission scoping
+// (src/authz.ts), so a role change in Severa must become visible quickly
+// without requiring the caller to disconnect and reconnect.
+const CACHE_TTL_SECONDS = 60;
 
 interface CachedUser {
   guid: Guid;

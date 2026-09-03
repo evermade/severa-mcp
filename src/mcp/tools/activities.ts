@@ -7,7 +7,7 @@ import type { ActivityModel } from "../../severa/types";
 import type { Env } from "../../env";
 import type { SessionProps } from "../../auth/session";
 import { toText } from "../format";
-import { effectiveUserGuids, requireEffectiveVisible, type CallerAuthz } from "../../authz";
+import { effectiveUserGuids, requireCategoryAccess, requireEffectiveVisible } from "../../authz";
 
 const READ_ANNOTATIONS = {
   readOnlyHint: true,
@@ -19,12 +19,7 @@ const READ_ANNOTATIONS = {
 const isoDate = () => z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 const uuid = () => z.string().uuid();
 
-export function registerActivityTools(
-  server: McpServer,
-  env: Env,
-  props: SessionProps,
-  authz: CallerAuthz,
-) {
+export function registerActivityTools(server: McpServer, env: Env, props: SessionProps) {
   server.registerTool(
     "severa_list_activities",
     {
@@ -82,6 +77,7 @@ export function registerActivityTools(
       annotations: { ...READ_ANNOTATIONS, title: "List activities" },
     },
     async (args) => {
+      const authz = await requireCategoryAccess(env, props, "activities");
       const limit = args.limit ?? 100;
       const requestedGuids = args.onlyMine
         ? [await requireSeveraUserGuid(env, props.email)]

@@ -9,9 +9,9 @@ import roleAllocationsFx from "../../__fixtures__/severa/role-allocations.json";
 import projectFeesFx from "../../__fixtures__/severa/project-fees.json";
 import projectTravelExpensesFx from "../../__fixtures__/severa/project-travel-expenses.json";
 import travelReimbursementsFx from "../../__fixtures__/severa/travel-reimbursements.json";
-import { callTool, listTools, mockSeveraFetch, testAuthz } from "../../test/harness";
+import { callTool, listTools, mockSeveraFetch } from "../../test/harness";
 import { registerHoursTools } from "./hours";
-import { registerResourceAllocationTools as registerResourceAllocationToolsRaw } from "./resource-allocations";
+import { registerResourceAllocationTools } from "./resource-allocations";
 import { registerFeeTools } from "./fees";
 import { registerTravelTools } from "./travels";
 
@@ -19,12 +19,7 @@ const registerHoursRead = (
   s: Parameters<typeof registerHoursTools>[0],
   e: Parameters<typeof registerHoursTools>[1],
   p: Parameters<typeof registerHoursTools>[2],
-) => registerHoursTools(s, e, p, { enableWrites: false, authz: testAuthz });
-
-const registerResourceAllocationTools = (
-  s: Parameters<typeof registerResourceAllocationToolsRaw>[0],
-  e: Parameters<typeof registerResourceAllocationToolsRaw>[1],
-) => registerResourceAllocationToolsRaw(s, e, testAuthz);
+) => registerHoursTools(s, e, p, { enableWrites: false });
 
 describe("severa_list_work_hours", () => {
   let calls: ReturnType<typeof mockSeveraFetch>["calls"];

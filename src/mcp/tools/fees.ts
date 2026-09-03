@@ -8,7 +8,9 @@ import type {
   ProjectRecurringFeeRuleOutputModel,
 } from "../../severa/types";
 import type { Env } from "../../env";
+import type { SessionProps } from "../../auth/session";
 import { formatMoney, toText } from "../format";
+import { requireCategoryAccess } from "../../authz";
 
 const READ_ANNOTATIONS = {
   readOnlyHint: true,
@@ -20,7 +22,7 @@ const READ_ANNOTATIONS = {
 const isoDate = () => z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 const uuid = () => z.string().uuid();
 
-export function registerFeeTools(server: McpServer, env: Env) {
+export function registerFeeTools(server: McpServer, env: Env, props: SessionProps) {
   server.registerTool(
     "severa_list_project_fees",
     {
@@ -54,6 +56,7 @@ export function registerFeeTools(server: McpServer, env: Env) {
       annotations: { ...READ_ANNOTATIONS, title: "List project fees" },
     },
     async (args) => {
+      await requireCategoryAccess(env, props, "fees");
       const limit = args.limit ?? 100;
       const rows = await severaPaginate<ProjectFeeOutputModel>(env, "/v1/projectfees", {
         query: {
@@ -113,6 +116,7 @@ export function registerFeeTools(server: McpServer, env: Env) {
       annotations: { ...READ_ANNOTATIONS, title: "List flat rates" },
     },
     async (args) => {
+      await requireCategoryAccess(env, props, "fees");
       const limit = args.limit ?? 100;
       const rows = await severaPaginate<FlatRateOutputModel>(env, "/v1/flatrates", {
         query: {
@@ -162,6 +166,7 @@ export function registerFeeTools(server: McpServer, env: Env) {
       annotations: { ...READ_ANNOTATIONS, title: "List recurring fees" },
     },
     async (args) => {
+      await requireCategoryAccess(env, props, "fees");
       const limit = args.limit ?? 100;
       const rows = await severaPaginate<ProjectRecurringFeeRuleOutputModel>(
         env,

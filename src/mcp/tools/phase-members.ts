@@ -3,8 +3,9 @@ import { z } from "zod";
 import { severaPaginate } from "../../severa/client";
 import type { PhaseMemberOutputModel } from "../../severa/types";
 import type { Env } from "../../env";
+import type { SessionProps } from "../../auth/session";
 import { toText } from "../format";
-import type { CallerAuthz } from "../../authz";
+import { requireCategoryAccess, type CallerAuthz } from "../../authz";
 
 const READ_ANNOTATIONS = {
   readOnlyHint: true,
@@ -15,7 +16,7 @@ const READ_ANNOTATIONS = {
 
 const isoDate = () => z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 
-export function registerPhaseMemberTools(server: McpServer, env: Env, authz: CallerAuthz) {
+export function registerPhaseMemberTools(server: McpServer, env: Env, props: SessionProps) {
   server.registerTool(
     "severa_list_phase_members",
     {
@@ -42,6 +43,7 @@ export function registerPhaseMemberTools(server: McpServer, env: Env, authz: Cal
       annotations: { ...READ_ANNOTATIONS, title: "List phase members" },
     },
     async (args) => {
+      const authz = await requireCategoryAccess(env, props, "phase-members");
       const limit = args.limit ?? 100;
       // Non-admins never see inactive users, even if they explicitly ask
       // for isUserActive: false — force it, don't just default it.

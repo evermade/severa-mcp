@@ -14,10 +14,10 @@ import { toText } from "../format";
 import {
   effectiveUserGuids,
   filterVisible,
+  requireCategoryAccess,
   requireEffectiveVisible,
   requireVisible,
   requireVisibleIfRequested,
-  type CallerAuthz,
 } from "../../authz";
 
 const READ_ANNOTATIONS = {
@@ -34,12 +34,7 @@ const WRITE_ANNOTATIONS = {
   openWorldHint: true,
 };
 
-export function registerHoursReadTools(
-  server: McpServer,
-  env: Env,
-  props: SessionProps,
-  authz: CallerAuthz,
-) {
+export function registerHoursReadTools(server: McpServer, env: Env, props: SessionProps) {
   server.registerTool(
     "severa_get_my_hours",
     {
@@ -52,6 +47,7 @@ export function registerHoursReadTools(
       annotations: { ...READ_ANNOTATIONS, title: "Get my hours" },
     },
     async ({ from, to }) => {
+      await requireCategoryAccess(env, props, "hours");
       const userGuid = await requireSeveraUserGuid(env, props.email);
       const range = from && to ? { from, to } : helsinkiWeekRange();
       const rows = await severaPaginate<WorkHourOutputModel>(
@@ -88,6 +84,7 @@ export function registerHoursReadTools(
       annotations: { ...READ_ANNOTATIONS, title: "Get unbilled hours" },
     },
     async ({ projectGuid }) => {
+      const authz = await requireCategoryAccess(env, props, "hours");
       const rows = await severaPaginate<WorkHourOutputModel>(
         env,
         `/v1/projects/${projectGuid}/workhours`,
@@ -119,7 +116,7 @@ export function registerHoursReadTools(
 const isoDate = () => z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 const uuid = () => z.string().uuid();
 
-export function registerHoursListTools(server: McpServer, env: Env, authz: CallerAuthz) {
+export function registerHoursListTools(server: McpServer, env: Env, props: SessionProps) {
   server.registerTool(
     "severa_list_work_hours",
     {
@@ -154,6 +151,7 @@ export function registerHoursListTools(server: McpServer, env: Env, authz: Calle
       annotations: { ...READ_ANNOTATIONS, title: "List work hours" },
     },
     async (args) => {
+      const authz = await requireCategoryAccess(env, props, "hours");
       const limit = args.limit ?? 100;
       requireVisibleIfRequested(authz, args.userGuid, "view work hours");
       const rows = await severaPaginate<WorkHourOutputModel>(env, "/v1/workhours", {
@@ -216,6 +214,7 @@ export function registerHoursListTools(server: McpServer, env: Env, authz: Calle
       annotations: { ...READ_ANNOTATIONS, title: "List time entries" },
     },
     async (args) => {
+      const authz = await requireCategoryAccess(env, props, "hours");
       const limit = args.limit ?? 100;
       requireVisibleIfRequested(authz, args.userGuid, "view time entries");
       const rows = await severaPaginate<TimeEntryModel>(env, "/v1/timeentries", {
@@ -274,6 +273,7 @@ export function registerHoursListTools(server: McpServer, env: Env, authz: Calle
       annotations: { ...READ_ANNOTATIONS, title: "List workdays" },
     },
     async (args) => {
+      const authz = await requireCategoryAccess(env, props, "hours");
       const limit = args.limit ?? 100;
       const requestedGuids = [
         ...(args.userGuid ? [args.userGuid] : []),
@@ -341,12 +341,7 @@ function renderWorkdayRow(r: WorkdayOutputModel): string {
   return `- ${parts.join(" — ")} — \`${r.guid}\``;
 }
 
-export function registerHoursWriteTools(
-  server: McpServer,
-  env: Env,
-  props: SessionProps,
-  authz: CallerAuthz,
-) {
+export function registerHoursWriteTools(server: McpServer, env: Env, props: SessionProps) {
   server.registerTool(
     "severa_log_hours",
     {
@@ -370,6 +365,7 @@ export function registerHoursWriteTools(
       annotations: { ...WRITE_ANNOTATIONS, title: "Log work hours" },
     },
     async ({ phaseGuid, workTypeGuid, quantity, eventDate, description, isBillable }) => {
+      await requireCategoryAccess(env, props, "hours");
       const userGuid = await requireSeveraUserGuid(env, props.email);
       const body = {
         user: { guid: userGuid },
@@ -422,6 +418,7 @@ export function registerHoursWriteTools(
       phaseGuid,
       workTypeGuid,
     }) => {
+      const authz = await requireCategoryAccess(env, props, "hours");
       const ops: Array<{ op: "replace"; path: string; value: unknown }> = [];
       if (quantity != null) ops.push({ op: "replace", path: "/quantity", value: quantity });
       if (eventDate != null) ops.push({ op: "replace", path: "/eventDate", value: eventDate });
@@ -461,6 +458,7 @@ export function registerHoursWriteTools(
       },
     },
     async ({ hoursGuid }) => {
+      const authz = await requireCategoryAccess(env, props, "hours");
       const existing = await severaFetch<WorkHourOutputModel>(env, `/v1/workhours/${hoursGuid}`);
       requireVisible(authz, existing.user?.guid, "delete this entry");
 
@@ -493,6 +491,7 @@ export function registerHoursWriteTools(
       annotations: { ...WRITE_ANNOTATIONS, title: "Close workday" },
     },
     async ({ date, isCompleted, userGuid }) => {
+      const authz = await requireCategoryAccess(env, props, "hours");
       const effectiveUser = userGuid ?? (await requireSeveraUserGuid(env, props.email));
       requireVisible(authz, effectiveUser, "close/reopen this workday");
       const effectiveDate = date ?? helsinkiToday();
@@ -516,9 +515,9 @@ export function registerHoursTools(
   server: McpServer,
   env: Env,
   props: SessionProps,
-  opts: { enableWrites: boolean; authz: CallerAuthz },
+  opts: { enableWrites: boolean },
 ) {
-  registerHoursReadTools(server, env, props, opts.authz);
-  registerHoursListTools(server, env, opts.authz);
-  if (opts.enableWrites) registerHoursWriteTools(server, env, props, opts.authz);
+  registerHoursReadTools(server, env, props);
+  registerHoursListTools(server, env, props);
+  if (opts.enableWrites) registerHoursWriteTools(server, env, props);
 }

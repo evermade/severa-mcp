@@ -7,7 +7,9 @@ import type {
   ProjectOutputModel,
 } from "../../severa/types";
 import type { Env } from "../../env";
+import type { SessionProps } from "../../auth/session";
 import { formatMoney, toText } from "../format";
+import { requireCategoryAccess } from "../../authz";
 
 const READ_ANNOTATIONS = {
   readOnlyHint: true,
@@ -16,7 +18,7 @@ const READ_ANNOTATIONS = {
   openWorldHint: true,
 };
 
-export function registerBillingForecastTools(server: McpServer, env: Env) {
+export function registerBillingForecastTools(server: McpServer, env: Env, props: SessionProps) {
   server.registerTool(
     "severa_get_billing_forecast",
     {
@@ -29,6 +31,7 @@ export function registerBillingForecastTools(server: McpServer, env: Env) {
       annotations: { ...READ_ANNOTATIONS, title: "Get billing forecast" },
     },
     async ({ projectGuid, horizonDays }) => {
+      await requireCategoryAccess(env, props, "billing-forecast");
       const rows = await loadForecast(env, projectGuid, horizonDays ?? 180);
       if (!rows.length) return toText("No forecast rows in range.");
       const lines = rows.map(
@@ -58,6 +61,7 @@ export function registerBillingForecastTools(server: McpServer, env: Env) {
       annotations: { ...READ_ANNOTATIONS, title: "Projects missing forecast" },
     },
     async (args) => {
+      await requireCategoryAccess(env, props, "billing-forecast");
       const horizonDays = args.horizonDays ?? 90;
       const limit = args.limit ?? 100;
       const projects = await severaPaginate<ProjectOutputModel>(env, "/v1/projects", {
@@ -95,6 +99,7 @@ export function registerBillingForecastTools(server: McpServer, env: Env) {
       annotations: { ...READ_ANNOTATIONS, title: "Cases missing forecast" },
     },
     async (args) => {
+      await requireCategoryAccess(env, props, "billing-forecast");
       const minProbability = args.minProbability ?? 75;
       const horizonDays = args.horizonDays ?? 180;
       const limit = args.limit ?? 100;

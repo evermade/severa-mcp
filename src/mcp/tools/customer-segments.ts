@@ -4,7 +4,9 @@ import { severaPaginate } from "../../severa/client";
 import { matches } from "../../severa/reference-cache";
 import type { CustomerMarketSegmentModel } from "../../severa/types";
 import type { Env } from "../../env";
+import type { SessionProps } from "../../auth/session";
 import { toText } from "../format";
+import { requireCategoryAccess } from "../../authz";
 
 const READ_ANNOTATIONS = {
   readOnlyHint: true,
@@ -13,7 +15,7 @@ const READ_ANNOTATIONS = {
   openWorldHint: true,
 };
 
-export function registerCustomerSegmentTools(server: McpServer, env: Env) {
+export function registerCustomerSegmentTools(server: McpServer, env: Env, props: SessionProps) {
   server.registerTool(
     "severa_list_customer_market_segments",
     {
@@ -44,6 +46,7 @@ export function registerCustomerSegmentTools(server: McpServer, env: Env) {
       annotations: { ...READ_ANNOTATIONS, title: "List customer market segments" },
     },
     async (args) => {
+      await requireCategoryAccess(env, props, "customer-segments");
       const limit = args.limit ?? 100;
       const rows = await severaPaginate<CustomerMarketSegmentModel>(
         env,
