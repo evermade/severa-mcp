@@ -206,17 +206,17 @@ npx wrangler kv key delete --binding CACHE_KV "severa:token" --env production
 2. Edit `wrangler.toml` → `[env.production.vars] ENABLE_WRITE_TOOLS = "true"`.
 3. `npm run deploy:production`. `severa_log_hours` becomes visible; read-only tools unchanged.
 
-**Role-derived permission scoping** (`src/authz.ts`) — `SEVERA_FULL_ACCESS_ROLES` / `SEVERA_BUSINESS_ONLY_ROLES` / `SEVERA_BUSINESS_ONLY_BLOCKED_TOOLS` / `SEVERA_SELF_ONLY_ROLES` must be set as **GitHub Environment secrets** (repo Settings → Environments → `staging`/`production`), not just via a one-off local `wrangler secret put`:
+**Role-derived permission scoping** (`src/authz.ts`) — `SEVERA_FULL_ACCESS_ROLES` / `SEVERA_BUSINESS_ONLY_ROLES` / `SEVERA_BUSINESS_ONLY_BLOCKED_TOOLS` / `SEVERA_SELF_ONLY_ROLES` are plain `[vars]` in `wrangler.toml` (base, `env.staging.vars`, and `env.production.vars`), not secrets — the role names aren't sensitive, so they're checked into git like `GOOGLE_HOSTED_DOMAIN` or `ENABLE_WRITE_TOOLS` and get set from source on every deploy. To change a role tier, edit `wrangler.toml` directly and redeploy.
+
+If any of the four were previously set via a one-off `wrangler secret put` (from before this was a plain var), delete that secret first — Cloudflare rejects a deploy where a `[vars]` name collides with an existing secret of the same name:
 
 ```bash
-gh secret set SEVERA_FULL_ACCESS_ROLES --env staging
-gh secret set SEVERA_BUSINESS_ONLY_ROLES --env staging
-gh secret set SEVERA_BUSINESS_ONLY_BLOCKED_TOOLS --env staging
-gh secret set SEVERA_SELF_ONLY_ROLES --env staging
+npx wrangler secret delete SEVERA_FULL_ACCESS_ROLES --env staging
+npx wrangler secret delete SEVERA_BUSINESS_ONLY_ROLES --env staging
+npx wrangler secret delete SEVERA_BUSINESS_ONLY_BLOCKED_TOOLS --env staging
+npx wrangler secret delete SEVERA_SELF_ONLY_ROLES --env staging
 # repeat with --env production
 ```
-
-`.github/workflows/deploy.yml` re-applies all four from there on every `gh workflow run deploy.yml` — the same pattern already used for `SEVERA_EMAIL_MAP`. A value set only via a local `wrangler secret put` isn't touched by that step (it won't be cleared, but it also won't be *set* by CI) — the actual risk is forgetting to add it to GitHub in the first place, then assuming the local `wrangler secret put` was the last word. If role scoping suddenly stops applying after a deploy, this is the first thing to check: `npx wrangler secret list --env <env>` should list all four names.
 
 **Clear reference cache** (after Severa data reshape / bad response cached):
 
