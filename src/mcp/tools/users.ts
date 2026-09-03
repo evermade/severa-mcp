@@ -4,7 +4,9 @@ import { severaPaginate } from "../../severa/client";
 import { matches } from "../../severa/reference-cache";
 import type { UserOutputModel } from "../../severa/types";
 import type { Env } from "../../env";
+import type { SessionProps } from "../../auth/session";
 import { toText } from "../format";
+import { requireCategoryAccess } from "../../authz";
 
 const READ_ANNOTATIONS = {
   readOnlyHint: true,
@@ -16,7 +18,7 @@ const READ_ANNOTATIONS = {
 const isoDate = () => z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 const uuid = () => z.string().uuid();
 
-export function registerUserTools(server: McpServer, env: Env) {
+export function registerUserTools(server: McpServer, env: Env, props: SessionProps) {
   server.registerTool(
     "severa_list_users",
     {
@@ -54,10 +56,14 @@ export function registerUserTools(server: McpServer, env: Env) {
       annotations: { ...READ_ANNOTATIONS, title: "List users" },
     },
     async (args) => {
+      const authz = await requireCategoryAccess(env, props, "users");
       const limit = args.limit ?? 100;
+      // Non-admins never see inactive users, even if they explicitly ask
+      // for isActive: false — force it, don't just default it.
+      const isActive = authz.isFullAccess ? args.isActive : true;
       const rows = await severaPaginate<UserOutputModel>(env, "/v1/users", {
         query: {
-          ...(args.isActive != null ? { isActive: args.isActive } : {}),
+          ...(isActive != null ? { isActive } : {}),
           ...(args.businessUnitGuids?.length ? { businessUnitGuids: args.businessUnitGuids } : {}),
           ...(args.keywordGuids?.length ? { keywordGuids: args.keywordGuids } : {}),
           ...(args.supervisorUserGuids?.length
@@ -71,7 +77,10 @@ export function registerUserTools(server: McpServer, env: Env) {
         },
       });
 
-      const hits = rows
+      // Defense-in-depth: don't rely solely on the server-side filter above.
+      const visible = authz.isFullAccess ? rows : rows.filter((u) => u.isActive !== false);
+
+      const hits = visible
         .filter((u) => {
           if (args.nameContains) {
             if (
@@ -89,7 +98,7 @@ export function registerUserTools(server: McpServer, env: Env) {
 
       if (!hits.length) return toText("No users match those filters.");
       return toText(
-        `${hits.length} user(s)${hits.length < rows.length ? ` (of ${rows.length} fetched)` : ""}:\n${hits.map(renderUserRow).join("\n")}`,
+        `${hits.length} user(s)${hits.length < visible.length ? ` (of ${visible.length} fetched)` : ""}:\n${hits.map(renderUserRow).join("\n")}`,
       );
     },
   );

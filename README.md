@@ -153,7 +153,14 @@ Worker  ──── 302 to redirect_uri ──────►  Claude   (exchan
 Claude  ──── GET /sse + Bearer ────────►  Worker  ──── serves MCP ─────────────►
 ```
 
-Multi-user by construction: every user does their own OAuth dance, each session record in KV carries their `{ email, googleSub }`, and every Severa query filters by that user's GUID.
+Multi-user by construction: every user does their own OAuth dance, and each session record in KV carries their `{ email, googleSub }`. Severa data itself is fetched with one shared `client_credentials` token, not a per-user one — Severa's own per-user permission model doesn't apply to what a given caller can see through this MCP by default.
+
+**Role-derived permission scoping** (`src/authz.ts`, opt-in via env vars — see `wrangler.toml`'s comment block) closes that gap without per-user Severa OAuth: on each connection, the caller's email is resolved to their real Severa user record, and their `permissionProfile.name` (team-specific suffixes like " - Kärsä" stripped) is matched against three configurable role lists:
+- `SEVERA_FULL_ACCESS_ROLES` — sees every tool and everyone's data, including the raw `severa_query` escape hatch.
+- `SEVERA_BUSINESS_ONLY_ROLES` — sees everyone's data, but entire tool categories (`SEVERA_BUSINESS_ONLY_BLOCKED_TOOLS`) aren't registered at all — no `severa_query` either.
+- `SEVERA_SELF_ONLY_ROLES` — every tool is registered, but personal-data tools (hours, activities, resource allocations, workdays) only ever return the caller's own rows.
+
+A role matching none of the three is rejected outright. If all three env vars are unset, the mechanism is a complete no-op — every caller gets today's unrestricted access, so this is safe to leave off until configured. Project/customer/invoice/CRM data is always broadly visible regardless of tier — only personal/employment-relationship data (e.g. `currentWorkContractTitle` on phase members) is gated, and that gate is independent of a tier's general row-visibility (a business-only caller sees everyone's phase roster for resourcing, but never anyone else's contract title).
 
 ## Status / known TODOs
 

@@ -32,6 +32,7 @@ import { registerCustomerSegmentTools } from "./mcp/tools/customer-segments.js";
 import { registerProjectsWriteTools } from "./mcp/tools/projects-write.js";
 import { registerQueryTools } from "./mcp/tools/query.js";
 import { registerResources } from "./mcp/resources/index.js";
+import { resolveCallerAuthz, registerAccessDeniedTool, AccessDeniedError } from "./authz.js";
 import type { Env } from "./env.js";
 import type { SessionProps } from "./auth/session.js";
 
@@ -101,6 +102,10 @@ const env = {
     vars.SEVERA_API_BASE_STAG ?? "https://api.severa.stag.visma.com/rest-api",
   SEVERA_API_BASE_PROD: vars.SEVERA_API_BASE_PROD ?? "https://api.severa.visma.com/rest-api",
   SEVERA_EMAIL_MAP: vars.SEVERA_EMAIL_MAP ?? "",
+  SEVERA_FULL_ACCESS_ROLES: vars.SEVERA_FULL_ACCESS_ROLES ?? "",
+  SEVERA_BUSINESS_ONLY_ROLES: vars.SEVERA_BUSINESS_ONLY_ROLES ?? "",
+  SEVERA_BUSINESS_ONLY_BLOCKED_TOOLS: vars.SEVERA_BUSINESS_ONLY_BLOCKED_TOOLS ?? "",
+  SEVERA_SELF_ONLY_ROLES: vars.SEVERA_SELF_ONLY_ROLES ?? "",
   ENABLE_WRITE_TOOLS: vars.ENABLE_WRITE_TOOLS ?? "false",
   GOOGLE_OAUTH_CLIENT_ID: "",
   GOOGLE_OAUTH_CLIENT_SECRET: "",
@@ -115,32 +120,53 @@ const props: SessionProps = {
 };
 
 const server = new McpServer({ name: "severa-mcp", version: "0.1.0" });
-registerLookupTools(server, env, props);
-registerCaseTools(server, env, props);
-registerBillingForecastTools(server, env);
-registerHoursTools(server, env, props, { enableWrites: env.ENABLE_WRITE_TOOLS === "true" });
-registerInvoiceTools(server, env);
-registerProposalTools(server, env);
-registerActivityTools(server, env, props);
-registerUserTools(server, env);
-registerContactTools(server, env);
-registerProductTools(server, env);
-registerPhaseTools(server, env);
-registerResourceAllocationTools(server, env);
-registerFeeTools(server, env);
-registerTravelTools(server, env);
-registerOvertimeTools(server, env);
-registerHolidayTools(server, env);
-registerRoleTools(server, env);
-registerPhaseMemberTools(server, env);
-registerRootPhaseTools(server, env);
-registerContactCommunicationTools(server, env);
-registerFileTools(server, env);
-registerAccountingTools(server, env);
-registerCustomerSegmentTools(server, env);
-if (env.ENABLE_WRITE_TOOLS === "true") registerProjectsWriteTools(server, env);
-registerQueryTools(server, env);
-registerResources(server, env, props);
+
+let authz;
+try {
+  authz = await resolveCallerAuthz(env, props);
+} catch (err) {
+  if (err instanceof AccessDeniedError) {
+    registerAccessDeniedTool(server, err.message);
+    authz = undefined;
+  } else {
+    throw err;
+  }
+}
+
+if (authz) {
+  // Best-effort, eventually-consistent tool-list tailoring only — not the
+  // security boundary. That's now inside each handler (requireCategoryAccess /
+  // resolveCallerAuthz called fresh per call).
+  const enableWrites = env.ENABLE_WRITE_TOOLS === "true";
+  const allow = (key: string) => !authz.blockedToolKeys.has(key);
+
+  if (allow("lookup")) registerLookupTools(server, env, props);
+  if (allow("cases")) registerCaseTools(server, env, props);
+  if (allow("billing-forecast")) registerBillingForecastTools(server, env, props);
+  if (allow("hours")) registerHoursTools(server, env, props, { enableWrites });
+  if (allow("invoices")) registerInvoiceTools(server, env, props);
+  if (allow("proposals")) registerProposalTools(server, env, props);
+  if (allow("activities")) registerActivityTools(server, env, props);
+  if (allow("users")) registerUserTools(server, env, props);
+  if (allow("contacts")) registerContactTools(server, env, props);
+  if (allow("products")) registerProductTools(server, env, props);
+  if (allow("phases")) registerPhaseTools(server, env, props);
+  if (allow("resource-allocations")) registerResourceAllocationTools(server, env, props);
+  if (allow("fees")) registerFeeTools(server, env, props);
+  if (allow("travels")) registerTravelTools(server, env, props);
+  if (allow("overtimes")) registerOvertimeTools(server, env, props);
+  if (allow("holidays")) registerHolidayTools(server, env, props);
+  if (allow("roles")) registerRoleTools(server, env, props);
+  if (allow("phase-members")) registerPhaseMemberTools(server, env, props);
+  if (allow("root-phases")) registerRootPhaseTools(server, env, props);
+  if (allow("contact-communications")) registerContactCommunicationTools(server, env, props);
+  if (allow("files")) registerFileTools(server, env, props);
+  if (allow("accounting")) registerAccountingTools(server, env, props);
+  if (allow("customer-segments")) registerCustomerSegmentTools(server, env, props);
+  if (enableWrites && allow("projects-write")) registerProjectsWriteTools(server, env, props);
+  if (authz.canUseQuery) registerQueryTools(server, env, props);
+  registerResources(server, env, props);
+}
 
 const transport = new StdioServerTransport();
 await server.connect(transport);

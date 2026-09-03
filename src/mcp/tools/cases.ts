@@ -6,6 +6,7 @@ import type { ProjectOutputModel } from "../../severa/types";
 import type { Env } from "../../env";
 import type { SessionProps } from "../../auth/session";
 import { formatMoney, toJsonBlock, toText } from "../format";
+import { requireCategoryAccess } from "../../authz";
 import {
   applyProjectClientFilters,
   buildProjectsServerQuery,
@@ -54,6 +55,7 @@ export function registerCaseTools(server: McpServer, env: Env, props: SessionPro
       annotations: { ...READ_ANNOTATIONS, title: "List sales cases" },
     },
     async (args) => {
+      await requireCategoryAccess(env, props, "cases");
       const limit = args.limit ?? 100;
       const queryOpts: { effectiveSalesPerson?: string; limit: number } = { limit };
       if (args.onlyMine) {
@@ -99,6 +101,7 @@ export function registerCaseTools(server: McpServer, env: Env, props: SessionPro
       annotations: { ...READ_ANNOTATIONS, title: "Get sales case" },
     },
     async ({ caseGuid }) => {
+      await requireCategoryAccess(env, props, "cases");
       const project = await severaFetch<ProjectOutputModel>(env, `/v1/projects/${caseGuid}`);
       return toJsonBlock(`Case: ${project.name}`, project);
     },
@@ -117,6 +120,7 @@ export function registerCaseTools(server: McpServer, env: Env, props: SessionPro
       annotations: { ...READ_ANNOTATIONS, title: "Pipeline summary" },
     },
     async ({ customerGuid, salesPersonGuid, onlyMine }) => {
+      await requireCategoryAccess(env, props, "cases");
       const effectiveSalesPerson =
         salesPersonGuid ??
         (onlyMine ? await requireSeveraUserGuid(env, props.email) : undefined);

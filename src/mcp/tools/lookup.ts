@@ -11,6 +11,7 @@ import type { Env } from "../../env";
 import type { SessionProps } from "../../auth/session";
 import type { CustomerModel, Money, ProjectOutputModel, UserWithName } from "../../severa/types";
 import { formatMoney, toJsonBlock, toText } from "../format";
+import { requireCategoryAccess } from "../../authz";
 import {
   applyProjectClientFilters,
   buildProjectsServerQuery,
@@ -40,6 +41,7 @@ export function registerLookupTools(server: McpServer, env: Env, props: SessionP
       annotations: { ...READ_ANNOTATIONS, title: "Find customer" },
     },
     async ({ text, limit }) => {
+      await requireCategoryAccess(env, props, "lookup");
       const all = await getActiveCustomers(env);
       const hits = all
         .filter((c) => matches(c.name, text) || matches(c.code, text) || matches(c.number, text))
@@ -65,6 +67,7 @@ export function registerLookupTools(server: McpServer, env: Env, props: SessionP
       annotations: { ...READ_ANNOTATIONS, title: "Find project" },
     },
     async ({ text, customerGuid, limit }) => {
+      await requireCategoryAccess(env, props, "lookup");
       const all = await getActiveProjects(env);
       const scoped = customerGuid ? all.filter((p) => p.customer?.guid === customerGuid) : all;
       const hits = scoped
@@ -94,21 +97,31 @@ export function registerLookupTools(server: McpServer, env: Env, props: SessionP
       annotations: { ...READ_ANNOTATIONS, title: "Find user" },
     },
     async ({ email, text, limit }) => {
+      const authz = await requireCategoryAccess(env, props, "lookup");
       if (!email && !text) return toText("Provide at least `email` or `text`.");
       const users = email
-        ? await severaPaginate<UserWithName>(env, "/v1/users", { query: { email, rowCount: 25 } })
+        ? await severaPaginate<UserWithName>(env, "/v1/users", {
+            query: {
+              email,
+              ...(authz.isFullAccess ? {} : { isActive: true }),
+              rowCount: 25,
+            },
+          })
         : await severaPaginate<UserWithName>(env, "/v1/users", {
             query: { isActive: true, rowCount: 500 },
           });
+      // Defense-in-depth: non-admins never see an inactive user, even if the
+      // server-side filter above were somehow bypassed or ignored.
+      const visible = authz.isFullAccess ? users : users.filter((u) => u.isActive !== false);
       const filtered = text
-        ? users.filter(
+        ? visible.filter(
             (u) =>
               matches(u.firstName, text) ||
               matches(u.lastName, text) ||
               matches(u.userName, text) ||
               matches(u.email, text),
           )
-        : users;
+        : visible;
       const hits = filtered.slice(0, limit ?? 15);
       if (!hits.length) return toText("No users matched.");
       const lines = hits.map(
@@ -127,6 +140,7 @@ export function registerLookupTools(server: McpServer, env: Env, props: SessionP
       annotations: { ...READ_ANNOTATIONS, title: "Get project" },
     },
     async ({ projectGuid }) => {
+      await requireCategoryAccess(env, props, "lookup");
       const project = await severaFetch<ProjectOutputModel>(env, `/v1/projects/${projectGuid}`);
       return toJsonBlock(`Project: ${project.name}`, project);
     },
@@ -140,6 +154,7 @@ export function registerLookupTools(server: McpServer, env: Env, props: SessionP
       annotations: { ...READ_ANNOTATIONS, title: "Get customer" },
     },
     async ({ customerGuid }) => {
+      await requireCategoryAccess(env, props, "lookup");
       const customer = await severaFetch<CustomerModel>(env, `/v1/customers/${customerGuid}`);
       return toJsonBlock(`Customer: ${customer.name}`, customer);
     },
@@ -184,6 +199,7 @@ export function registerLookupTools(server: McpServer, env: Env, props: SessionP
       annotations: { ...READ_ANNOTATIONS, title: "List customers" },
     },
     async (args) => {
+      await requireCategoryAccess(env, props, "lookup");
       const {
         isActive,
         isInternal,
@@ -266,6 +282,7 @@ export function registerLookupTools(server: McpServer, env: Env, props: SessionP
       annotations: { ...READ_ANNOTATIONS, title: "List projects" },
     },
     async (args) => {
+      await requireCategoryAccess(env, props, "lookup");
       const limit = args.limit ?? 100;
       const queryOpts: { effectiveSalesPerson?: string; limit: number } = { limit };
       if (args.onlyMine) {

@@ -28,37 +28,64 @@ import { registerCustomerSegmentTools } from "./tools/customer-segments";
 import { registerProjectsWriteTools } from "./tools/projects-write";
 import { registerQueryTools } from "./tools/query";
 import { registerResources } from "./resources";
+import {
+  resolveCallerAuthz,
+  registerAccessDeniedTool,
+  AccessDeniedError,
+  type CallerAuthz,
+} from "../authz";
 
 export class SeveraMcpAgent extends McpAgent<Env, Record<string, never>, SessionProps> {
   server = new McpServer({ name: "severa-mcp", version: "0.1.0" });
 
   async init(): Promise<void> {
+    const props = this.props;
+    if (!props) throw new Error("SeveraMcpAgent.init() called without session props");
+
+    let authz: CallerAuthz;
+    try {
+      authz = await resolveCallerAuthz(this.env, props);
+    } catch (err) {
+      if (err instanceof AccessDeniedError) {
+        registerAccessDeniedTool(this.server, err.message);
+        return;
+      }
+      throw err;
+    }
+
+    // Best-effort, eventually-consistent tool-list tailoring only — not the
+    // security boundary. That's now inside each handler (requireCategoryAccess /
+    // resolveCallerAuthz called fresh per call), since this registration-time
+    // snapshot can go stale for as long as this Durable Object instance stays
+    // hot (see the plan this implements for why that's an acceptable tradeoff).
     const enableWrites = this.env.ENABLE_WRITE_TOOLS === "true";
-    registerLookupTools(this.server, this.env, this.props);
-    registerCaseTools(this.server, this.env, this.props);
-    registerBillingForecastTools(this.server, this.env);
-    registerHoursTools(this.server, this.env, this.props, { enableWrites });
-    registerInvoiceTools(this.server, this.env);
-    registerProposalTools(this.server, this.env);
-    registerActivityTools(this.server, this.env, this.props);
-    registerUserTools(this.server, this.env);
-    registerContactTools(this.server, this.env);
-    registerProductTools(this.server, this.env);
-    registerPhaseTools(this.server, this.env);
-    registerResourceAllocationTools(this.server, this.env);
-    registerFeeTools(this.server, this.env);
-    registerTravelTools(this.server, this.env);
-    registerOvertimeTools(this.server, this.env);
-    registerHolidayTools(this.server, this.env);
-    registerRoleTools(this.server, this.env);
-    registerPhaseMemberTools(this.server, this.env);
-    registerRootPhaseTools(this.server, this.env);
-    registerContactCommunicationTools(this.server, this.env);
-    registerFileTools(this.server, this.env);
-    registerAccountingTools(this.server, this.env);
-    registerCustomerSegmentTools(this.server, this.env);
-    if (enableWrites) registerProjectsWriteTools(this.server, this.env);
-    registerQueryTools(this.server, this.env);
-    registerResources(this.server, this.env, this.props);
+    const allow = (key: string) => !authz.blockedToolKeys.has(key);
+
+    if (allow("lookup")) registerLookupTools(this.server, this.env, props);
+    if (allow("cases")) registerCaseTools(this.server, this.env, props);
+    if (allow("billing-forecast")) registerBillingForecastTools(this.server, this.env, props);
+    if (allow("hours")) registerHoursTools(this.server, this.env, props, { enableWrites });
+    if (allow("invoices")) registerInvoiceTools(this.server, this.env, props);
+    if (allow("proposals")) registerProposalTools(this.server, this.env, props);
+    if (allow("activities")) registerActivityTools(this.server, this.env, props);
+    if (allow("users")) registerUserTools(this.server, this.env, props);
+    if (allow("contacts")) registerContactTools(this.server, this.env, props);
+    if (allow("products")) registerProductTools(this.server, this.env, props);
+    if (allow("phases")) registerPhaseTools(this.server, this.env, props);
+    if (allow("resource-allocations")) registerResourceAllocationTools(this.server, this.env, props);
+    if (allow("fees")) registerFeeTools(this.server, this.env, props);
+    if (allow("travels")) registerTravelTools(this.server, this.env, props);
+    if (allow("overtimes")) registerOvertimeTools(this.server, this.env, props);
+    if (allow("holidays")) registerHolidayTools(this.server, this.env, props);
+    if (allow("roles")) registerRoleTools(this.server, this.env, props);
+    if (allow("phase-members")) registerPhaseMemberTools(this.server, this.env, props);
+    if (allow("root-phases")) registerRootPhaseTools(this.server, this.env, props);
+    if (allow("contact-communications")) registerContactCommunicationTools(this.server, this.env, props);
+    if (allow("files")) registerFileTools(this.server, this.env, props);
+    if (allow("accounting")) registerAccountingTools(this.server, this.env, props);
+    if (allow("customer-segments")) registerCustomerSegmentTools(this.server, this.env, props);
+    if (enableWrites && allow("projects-write")) registerProjectsWriteTools(this.server, this.env, props);
+    if (authz.canUseQuery) registerQueryTools(this.server, this.env, props);
+    registerResources(this.server, this.env, props);
   }
 }

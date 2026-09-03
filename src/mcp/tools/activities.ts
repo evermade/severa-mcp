@@ -7,6 +7,7 @@ import type { ActivityModel } from "../../severa/types";
 import type { Env } from "../../env";
 import type { SessionProps } from "../../auth/session";
 import { toText } from "../format";
+import { effectiveUserGuids, requireCategoryAccess, requireEffectiveVisible } from "../../authz";
 
 const READ_ANNOTATIONS = {
   readOnlyHint: true,
@@ -76,10 +77,13 @@ export function registerActivityTools(server: McpServer, env: Env, props: Sessio
       annotations: { ...READ_ANNOTATIONS, title: "List activities" },
     },
     async (args) => {
+      const authz = await requireCategoryAccess(env, props, "activities");
       const limit = args.limit ?? 100;
-      const userGuids = args.onlyMine
+      const requestedGuids = args.onlyMine
         ? [await requireSeveraUserGuid(env, props.email)]
         : args.userGuids;
+      const userGuids = effectiveUserGuids(authz, requestedGuids);
+      requireEffectiveVisible(requestedGuids ?? undefined, userGuids, "view activities");
 
       const normalizeDate = (v?: string | null): string | undefined => {
         if (!v) return undefined;

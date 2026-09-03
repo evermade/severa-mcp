@@ -9,7 +9,9 @@ import type {
   ProposalWorkhourRowOutputModel,
 } from "../../severa/types";
 import type { Env } from "../../env";
+import type { SessionProps } from "../../auth/session";
 import { formatMoney, toText } from "../format";
+import { requireCategoryAccess } from "../../authz";
 
 const READ_ANNOTATIONS = {
   readOnlyHint: true,
@@ -21,7 +23,7 @@ const READ_ANNOTATIONS = {
 const isoDate = () => z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 const uuid = () => z.string().uuid();
 
-export function registerProposalTools(server: McpServer, env: Env) {
+export function registerProposalTools(server: McpServer, env: Env, props: SessionProps) {
   server.registerTool(
     "severa_list_proposals",
     {
@@ -52,6 +54,7 @@ export function registerProposalTools(server: McpServer, env: Env) {
       annotations: { ...READ_ANNOTATIONS, title: "List proposals" },
     },
     async (args) => {
+      await requireCategoryAccess(env, props, "proposals");
       const limit = args.limit ?? 100;
       const rows = await severaPaginate<ProposalOutputModel>(env, "/v1/proposals", {
         query: {
@@ -101,6 +104,7 @@ export function registerProposalTools(server: McpServer, env: Env) {
       annotations: { ...READ_ANNOTATIONS, title: "Proposal breakdown" },
     },
     async ({ proposalGuid }) => {
+      await requireCategoryAccess(env, props, "proposals");
       const [workRows, feeRows, subtotals] = await Promise.all([
         severaPaginate<ProposalWorkhourRowOutputModel>(env, "/v1/proposalworkrows", {
           query: { rowCount: 1000 },

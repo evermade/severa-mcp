@@ -3,7 +3,9 @@ import { z } from "zod";
 import { severaFetch } from "../../severa/client";
 import type { ProjectOutputModel } from "../../severa/types";
 import type { Env } from "../../env";
+import type { SessionProps } from "../../auth/session";
 import { toText } from "../format";
+import { requireCategoryAccess } from "../../authz";
 
 // Create / update tools for projects. Sales cases are projects with a
 // salesStatus set — the same POST /v1/projects and PATCH /v1/projects/{guid}
@@ -22,7 +24,7 @@ const WRITE_ANNOTATIONS = {
 const isoDate = () => z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 const uuid = () => z.string().uuid();
 
-export function registerProjectsWriteTools(server: McpServer, env: Env) {
+export function registerProjectsWriteTools(server: McpServer, env: Env, props: SessionProps) {
   server.registerTool(
     "severa_create_project",
     {
@@ -70,6 +72,7 @@ export function registerProjectsWriteTools(server: McpServer, env: Env) {
       annotations: { ...WRITE_ANNOTATIONS, title: "Create project / case" },
     },
     async (args) => {
+      await requireCategoryAccess(env, props, "projects-write");
       const body: Record<string, unknown> = {
         name: args.name,
         customer: { guid: args.customerGuid },
@@ -141,6 +144,7 @@ export function registerProjectsWriteTools(server: McpServer, env: Env) {
       annotations: { ...WRITE_ANNOTATIONS, title: "Update project / case" },
     },
     async (args) => {
+      await requireCategoryAccess(env, props, "projects-write");
       const ops: Array<{ op: "replace"; path: string; value: unknown }> = [];
       if (args.name != null) ops.push({ op: "replace", path: "/name", value: args.name });
       if (args.description != null)

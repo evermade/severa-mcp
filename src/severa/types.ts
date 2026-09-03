@@ -179,6 +179,7 @@ export interface UserOutputModel extends UserWithName {
   keywords?: { guid?: Guid; value?: string; name?: string }[];
   title?: string;
   purpose?: string;
+  permissionProfile?: { guid: Guid; name?: string };
   createdDateTime?: string;
   lastUpdatedDateTime?: string;
 }

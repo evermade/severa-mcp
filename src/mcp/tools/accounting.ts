@@ -8,7 +8,9 @@ import type {
   KpiFormulaOutputModel,
 } from "../../severa/types";
 import type { Env } from "../../env";
+import type { SessionProps } from "../../auth/session";
 import { toText } from "../format";
+import { requireCategoryAccess } from "../../authz";
 
 const READ_ANNOTATIONS = {
   readOnlyHint: true,
@@ -20,7 +22,7 @@ const READ_ANNOTATIONS = {
 const isoDate = () => z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 const uuid = () => z.string().uuid();
 
-export function registerAccountingTools(server: McpServer, env: Env) {
+export function registerAccountingTools(server: McpServer, env: Env, props: SessionProps) {
   server.registerTool(
     "severa_list_bank_accounts",
     {
@@ -45,6 +47,7 @@ export function registerAccountingTools(server: McpServer, env: Env) {
       annotations: { ...READ_ANNOTATIONS, title: "List bank accounts" },
     },
     async (args) => {
+      await requireCategoryAccess(env, props, "accounting");
       const limit = args.limit ?? 100;
       const rows = await severaPaginate<BankAccountOutputModel>(env, "/v1/bankaccounts", {
         query: {
@@ -89,6 +92,7 @@ export function registerAccountingTools(server: McpServer, env: Env) {
       annotations: { ...READ_ANNOTATIONS, title: "List accounting accounts" },
     },
     async (args) => {
+      await requireCategoryAccess(env, props, "accounting");
       const limit = args.limit ?? 100;
       const path = args.kind === "sales" ? "/v1/salesaccounts" : "/v1/costaccounts";
       const rows = await severaPaginate<AccountModel>(env, path, {
@@ -135,6 +139,7 @@ export function registerAccountingTools(server: McpServer, env: Env) {
       annotations: { ...READ_ANNOTATIONS, title: "List KPI formulas" },
     },
     async (args) => {
+      await requireCategoryAccess(env, props, "accounting");
       const limit = args.limit ?? 100;
       const rows = await severaPaginate<KpiFormulaOutputModel>(env, "/v1/kpiformulas", {
         query: {

@@ -6,7 +6,9 @@ import type {
   RoleAllocationOutputModel,
 } from "../../severa/types";
 import type { Env } from "../../env";
+import type { SessionProps } from "../../auth/session";
 import { toText } from "../format";
+import { filterVisible, requireCategoryAccess, requireVisibleIfRequested } from "../../authz";
 
 const READ_ANNOTATIONS = {
   readOnlyHint: true,
@@ -18,7 +20,7 @@ const READ_ANNOTATIONS = {
 const isoDate = () => z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 const uuid = () => z.string().uuid();
 
-export function registerResourceAllocationTools(server: McpServer, env: Env) {
+export function registerResourceAllocationTools(server: McpServer, env: Env, props: SessionProps) {
   server.registerTool(
     "severa_list_resource_allocations",
     {
@@ -50,7 +52,9 @@ export function registerResourceAllocationTools(server: McpServer, env: Env) {
       annotations: { ...READ_ANNOTATIONS, title: "List resource allocations" },
     },
     async (args) => {
+      const authz = await requireCategoryAccess(env, props, "resource-allocations");
       const limit = args.limit ?? 100;
+      requireVisibleIfRequested(authz, args.userGuid, "view resource allocations");
       const rows = await severaPaginate<ResourceAllocationOutputModel>(
         env,
         "/v1/resourceallocations",
@@ -62,7 +66,8 @@ export function registerResourceAllocationTools(server: McpServer, env: Env) {
         },
       );
 
-      const hits = rows
+      const visible = filterVisible(authz, rows, (r) => r.user?.guid);
+      const hits = visible
         .filter((r) => {
           if (args.projectGuid && r.project?.guid !== args.projectGuid) return false;
           if (args.phaseGuid && r.phase?.guid !== args.phaseGuid) return false;
@@ -79,7 +84,7 @@ export function registerResourceAllocationTools(server: McpServer, env: Env) {
 
       if (!hits.length) return toText("No resource allocations match those filters.");
       return toText(
-        `${hits.length} allocation(s)${hits.length < rows.length ? ` (of ${rows.length} fetched)` : ""}:\n${hits.map(renderAllocationRow).join("\n")}`,
+        `${hits.length} allocation(s)${hits.length < visible.length ? ` (of ${visible.length} fetched)` : ""}:\n${hits.map(renderAllocationRow).join("\n")}`,
       );
     },
   );
@@ -115,6 +120,7 @@ export function registerResourceAllocationTools(server: McpServer, env: Env) {
       annotations: { ...READ_ANNOTATIONS, title: "List role allocations" },
     },
     async (args) => {
+      await requireCategoryAccess(env, props, "resource-allocations");
       const limit = args.limit ?? 100;
       const rows = await severaPaginate<RoleAllocationOutputModel>(
         env,

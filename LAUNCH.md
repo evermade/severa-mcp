@@ -206,6 +206,18 @@ npx wrangler kv key delete --binding CACHE_KV "severa:token" --env production
 2. Edit `wrangler.toml` → `[env.production.vars] ENABLE_WRITE_TOOLS = "true"`.
 3. `npm run deploy:production`. `severa_log_hours` becomes visible; read-only tools unchanged.
 
+**Role-derived permission scoping** (`src/authz.ts`) — `SEVERA_FULL_ACCESS_ROLES` / `SEVERA_BUSINESS_ONLY_ROLES` / `SEVERA_BUSINESS_ONLY_BLOCKED_TOOLS` / `SEVERA_SELF_ONLY_ROLES` are plain `[vars]` in `wrangler.toml` (base, `env.staging.vars`, and `env.production.vars`), not secrets — the role names aren't sensitive, so they're checked into git like `GOOGLE_HOSTED_DOMAIN` or `ENABLE_WRITE_TOOLS` and get set from source on every deploy. To change a role tier, edit `wrangler.toml` directly and redeploy.
+
+If any of the four were previously set via a one-off `wrangler secret put` (from before this was a plain var), delete that secret first — Cloudflare rejects a deploy where a `[vars]` name collides with an existing secret of the same name:
+
+```bash
+npx wrangler secret delete SEVERA_FULL_ACCESS_ROLES --env staging
+npx wrangler secret delete SEVERA_BUSINESS_ONLY_ROLES --env staging
+npx wrangler secret delete SEVERA_BUSINESS_ONLY_BLOCKED_TOOLS --env staging
+npx wrangler secret delete SEVERA_SELF_ONLY_ROLES --env staging
+# repeat with --env production
+```
+
 **Clear reference cache** (after Severa data reshape / bad response cached):
 
 ```bash

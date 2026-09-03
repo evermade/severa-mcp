@@ -3,7 +3,9 @@ import { z } from "zod";
 import { severaPaginate } from "../../severa/client";
 import type { PhaseOutputModel } from "../../severa/types";
 import type { Env } from "../../env";
+import type { SessionProps } from "../../auth/session";
 import { toText } from "../format";
+import { requireCategoryAccess } from "../../authz";
 
 const READ_ANNOTATIONS = {
   readOnlyHint: true,
@@ -12,7 +14,7 @@ const READ_ANNOTATIONS = {
   openWorldHint: true,
 };
 
-export function registerRootPhaseTools(server: McpServer, env: Env) {
+export function registerRootPhaseTools(server: McpServer, env: Env, props: SessionProps) {
   server.registerTool(
     "severa_list_root_phases",
     {
@@ -44,6 +46,7 @@ export function registerRootPhaseTools(server: McpServer, env: Env) {
       annotations: { ...READ_ANNOTATIONS, title: "List root phases" },
     },
     async (args) => {
+      await requireCategoryAccess(env, props, "root-phases");
       const limit = args.limit ?? 100;
       const rows = await severaPaginate<PhaseOutputModel>(env, "/v1/rootphaseswithhierarchy", {
         query: {

@@ -4,7 +4,9 @@ import { severaPaginate } from "../../severa/client";
 import { matches } from "../../severa/reference-cache";
 import type { ContactCommunicationModel } from "../../severa/types";
 import type { Env } from "../../env";
+import type { SessionProps } from "../../auth/session";
 import { toText } from "../format";
+import { requireCategoryAccess } from "../../authz";
 
 const READ_ANNOTATIONS = {
   readOnlyHint: true,
@@ -15,7 +17,7 @@ const READ_ANNOTATIONS = {
 
 const isoDate = () => z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 
-export function registerContactCommunicationTools(server: McpServer, env: Env) {
+export function registerContactCommunicationTools(server: McpServer, env: Env, props: SessionProps) {
   server.registerTool(
     "severa_list_contact_communications",
     {
@@ -48,6 +50,7 @@ export function registerContactCommunicationTools(server: McpServer, env: Env) {
       annotations: { ...READ_ANNOTATIONS, title: "List contact communications" },
     },
     async (args) => {
+      await requireCategoryAccess(env, props, "contact-communications");
       const limit = args.limit ?? 100;
       const rows = await severaPaginate<ContactCommunicationModel>(
         env,

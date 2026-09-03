@@ -2,7 +2,9 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { severaFetch, severaPaginate } from "../../severa/client";
 import type { Env } from "../../env";
+import type { SessionProps } from "../../auth/session";
 import { toJsonBlock } from "../format";
+import { AccessDeniedError, resolveCallerAuthz } from "../../authz";
 
 const READ_ANNOTATIONS = {
   readOnlyHint: true,
@@ -11,7 +13,7 @@ const READ_ANNOTATIONS = {
   openWorldHint: true,
 };
 
-export function registerQueryTools(server: McpServer, env: Env) {
+export function registerQueryTools(server: McpServer, env: Env, props: SessionProps) {
   server.registerTool(
     "severa_query",
     {
@@ -59,6 +61,13 @@ export function registerQueryTools(server: McpServer, env: Env) {
       annotations: { ...READ_ANNOTATIONS, title: "Severa API query" },
     },
     async ({ path, query, paginate, maxRows }) => {
+      // Highest-risk tool (raw, unfiltered proxy) — full-access tier only,
+      // re-checked fresh on every call rather than trusted from registration
+      // time, since a demoted caller must lose this immediately.
+      const authz = await resolveCallerAuthz(env, props);
+      if (!authz.canUseQuery) {
+        throw new AccessDeniedError("This tool is not available for your current Severa role.");
+      }
       const shouldPaginate = paginate ?? true;
       const max = maxRows ?? 500;
       const opts = query ? { query } : {};

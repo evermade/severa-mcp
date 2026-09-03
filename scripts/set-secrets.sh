@@ -38,4 +38,11 @@ for entry in "${SECRETS[@]}"; do
 done
 
 echo "All secrets set for --env ${ENV_NAME}."
+echo
+echo "Note: role-derived permission scoping (src/authz.ts) is NOT set here —"
+echo "SEVERA_FULL_ACCESS_ROLES / SEVERA_BUSINESS_ONLY_ROLES /"
+echo "SEVERA_BUSINESS_ONLY_BLOCKED_TOOLS / SEVERA_SELF_ONLY_ROLES are plain"
+echo "[vars] in wrangler.toml (not secrets — the role names aren't sensitive),"
+echo "so edit them directly there instead."
+echo
 echo "Next: npm run deploy:${ENV_NAME}"
