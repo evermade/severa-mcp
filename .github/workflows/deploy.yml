@@ -40,3 +40,20 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           SEVERA_EMAIL_MAP: ${{ secrets.SEVERA_EMAIL_MAP }}
+
+      - name: Set role-scoping secrets
+        run: |
+          set_if_present() {
+            if [ -n "$2" ]; then printf '%s' "$2" | npx wrangler secret put "$1" --env ${{ inputs.environment }}; fi
+          }
+          set_if_present SEVERA_FULL_ACCESS_ROLES "$SEVERA_FULL_ACCESS_ROLES"
+          set_if_present SEVERA_BUSINESS_ONLY_ROLES "$SEVERA_BUSINESS_ONLY_ROLES"
+          set_if_present SEVERA_BUSINESS_ONLY_BLOCKED_TOOLS "$SEVERA_BUSINESS_ONLY_BLOCKED_TOOLS"
+          set_if_present SEVERA_SELF_ONLY_ROLES "$SEVERA_SELF_ONLY_ROLES"
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          SEVERA_FULL_ACCESS_ROLES: ${{ secrets.SEVERA_FULL_ACCESS_ROLES }}
+          SEVERA_BUSINESS_ONLY_ROLES: ${{ secrets.SEVERA_BUSINESS_ONLY_ROLES }}
+          SEVERA_BUSINESS_ONLY_BLOCKED_TOOLS: ${{ secrets.SEVERA_BUSINESS_ONLY_BLOCKED_TOOLS }}
+          SEVERA_SELF_ONLY_ROLES: ${{ secrets.SEVERA_SELF_ONLY_ROLES }}

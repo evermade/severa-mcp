@@ -99,3 +99,10 @@ ENABLE_WRITE_TOOLS = "false"
 #   SEVERA_BUSINESS_ONLY_ROLES        - e.g. "Account Director,Project Manager" — sees everyone within allowed tool categories
 #   SEVERA_BUSINESS_ONLY_BLOCKED_TOOLS - e.g. "travels,overtimes" — tool-file basenames not registered for the roles above
 #   SEVERA_SELF_ONLY_ROLES            - e.g. "Employee" — every tool available, but personal-data tools show only the caller's own rows
+#
+#   IMPORTANT: for these four to survive a CI deploy, also set them as GitHub
+#   Environment secrets (repo Settings → Environments → staging/production) —
+#   .github/workflows/deploy.yml re-applies them from there on every run, the
+#   same way it already does for SEVERA_EMAIL_MAP. A local-only
+#   `wrangler secret put` isn't cleared by a deploy, but it's also not what a
+#   fresh CI deploy will use. See LAUNCH.md's Day-2 operations section.
