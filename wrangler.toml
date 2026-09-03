@@ -85,12 +85,12 @@ new_sqlite_classes = ["SeveraMcpAgent"]
 SEVERA_ENV = "prod"
 SEVERA_API_BASE_STAG = "https://api.severa.stag.visma.com/rest-api"
 SEVERA_API_BASE_PROD = "https://api.severa.visma.com/rest-api"
-GOOGLE_HOSTED_DOMAIN = "genero.fi"
+GOOGLE_HOSTED_DOMAIN = "evermade.fi"
 ENABLE_WRITE_TOOLS = "false"
 SEVERA_FULL_ACCESS_ROLES = "Pääkäyttäjä"
-SEVERA_BUSINESS_ONLY_ROLES = "Johto"
+SEVERA_BUSINESS_ONLY_ROLES = "Account Director,Project Manager"
 SEVERA_BUSINESS_ONLY_BLOCKED_TOOLS = ""
-SEVERA_SELF_ONLY_ROLES = "Työntekijä"
+SEVERA_SELF_ONLY_ROLES = "Employee"
 
 # Secrets (set via `wrangler secret put ... --env staging|production`):
 #   SEVERA_CLIENT_ID
