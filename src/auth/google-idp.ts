@@ -4,6 +4,7 @@ import type {
 } from "@cloudflare/workers-oauth-provider";
 import type { SessionProps } from "./session";
 import { encryptCookie, decryptCookie } from "./cookie-crypto";
+import { log } from "../log";
 
 const GOOGLE_AUTHORIZE = "https://accounts.google.com/o/oauth2/v2/auth";
 const GOOGLE_TOKEN = "https://oauth2.googleapis.com/token";
@@ -72,7 +73,10 @@ async function handleCallback(request: Request, env: GoogleEnv): Promise<Respons
   if (!code || !state) return new Response("Missing code/state", { status: 400 });
 
   const stored = readCookie(request, OAUTH_REQ_COOKIE);
-  if (!stored) return new Response("OAuth state missing; please retry.", { status: 400 });
+  if (!stored) {
+    log("oauth.callback", { outcome: "state_cookie_missing" }, "warn");
+    return new Response("OAuth state missing; please retry.", { status: 400 });
+  }
 
   // C1: decrypt cookie
   const decrypted = await decryptCookie(stored, env.COOKIE_ENCRYPTION_KEY);
@@ -106,7 +110,11 @@ async function handleCallback(request: Request, env: GoogleEnv): Promise<Respons
   });
   if (!tokenRes.ok) {
     // C2: log full error server-side, return generic message to client
-    console.error("Google token exchange failed:", tokenRes.status, await tokenRes.text());
+    log(
+      "oauth.callback",
+      { outcome: "google_token_failed", status: tokenRes.status, body: await tokenRes.text() },
+      "error",
+    );
     return new Response("Authentication failed. Please retry.", { status: 502 });
   }
   const { access_token } = (await tokenRes.json()) as { access_token: string };
@@ -114,7 +122,10 @@ async function handleCallback(request: Request, env: GoogleEnv): Promise<Respons
   const uiRes = await fetch(GOOGLE_USERINFO, {
     headers: { authorization: `Bearer ${access_token}` },
   });
-  if (!uiRes.ok) return new Response("Authentication failed. Please retry.", { status: 502 });
+  if (!uiRes.ok) {
+    log("oauth.callback", { outcome: "google_userinfo_failed", status: uiRes.status }, "error");
+    return new Response("Authentication failed. Please retry.", { status: 502 });
+  }
   const info = (await uiRes.json()) as {
     sub: string;
     email?: string;
@@ -130,6 +141,7 @@ async function handleCallback(request: Request, env: GoogleEnv): Promise<Respons
     !info.email.toLowerCase().endsWith(`@${env.GOOGLE_HOSTED_DOMAIN.toLowerCase()}`)
   ) {
     // H1: generic message — don't confirm which email was attempted
+    log("oauth.callback", { outcome: "domain_rejected", user: info.email, hd: info.hd }, "warn");
     return new Response(
       `Access restricted to @${env.GOOGLE_HOSTED_DOMAIN} accounts.`,
       { status: 403 },
@@ -150,6 +162,7 @@ async function handleCallback(request: Request, env: GoogleEnv): Promise<Respons
     props,
   });
 
+  log("oauth.callback", { outcome: "ok", user: props.email });
   return new Response(null, {
     status: 302,
     headers: {

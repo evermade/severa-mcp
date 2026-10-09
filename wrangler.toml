@@ -4,6 +4,12 @@ compatibility_date = "2025-04-01"
 compatibility_flags = ["nodejs_compat"]
 # account_id comes from CLOUDFLARE_ACCOUNT_ID env var (GitHub secret or local shell) at deploy time
 
+# Workers Logs: keeps console output (incl. the structured JSON lines from
+# src/log.ts) queryable in the dashboard. Repeated per env to be explicit.
+[observability]
+enabled = true
+head_sampling_rate = 1
+
 # KV namespaces
 #   OAUTH_KV   - Workers OAuth Provider stores authorization/refresh tokens + client registrations
 #   CACHE_KV   - Severa bearer token, email→userGuid map, reference data cache, rate-limit buckets
@@ -54,6 +60,10 @@ bindings = [
 tag = "v1"
 new_sqlite_classes = ["SeveraMcpAgent"]
 
+[env.staging.observability]
+enabled = true
+head_sampling_rate = 1
+
 [env.staging.vars]
 SEVERA_ENV = "stag"
 SEVERA_API_BASE_STAG = "https://api.severa.stag.visma.com/rest-api"
@@ -80,6 +90,10 @@ bindings = [
 [[env.production.migrations]]
 tag = "v1"
 new_sqlite_classes = ["SeveraMcpAgent"]
+
+[env.production.observability]
+enabled = true
+head_sampling_rate = 1
 
 [env.production.vars]
 SEVERA_ENV = "prod"

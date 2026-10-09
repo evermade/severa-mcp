@@ -42,6 +42,22 @@ gh workflow run deploy.yml -f environment=production
 gh run watch "$(gh run list --workflow deploy.yml --limit 1 --json databaseId -q '.[0].databaseId')" --exit-status
 ```
 
+## Debugging production
+
+Workers Logs is enabled (`[observability]` in `wrangler.toml`). Every log line from `src/log.ts` is one JSON object, so fields are filterable in the dashboard (Workers → severa-mcp → Logs / Query Builder):
+
+| `event` | When | Useful fields |
+|---|---|---|
+| `mcp.init` | session start / DO wake | `outcome` (`ok`/`fallback`/`denied`), `tier`, `user`, `error` |
+| `tool.call` | every tool call | `tool`, `outcome` (`ok`/`error`/`denied`), `durationMs`, `severaStatus` |
+| `severa.request` | non-2xx, retries, 401 token reset, >5s | `path`, `status`, `attempt`, `outcome` |
+| `severa.token` | token issue/refresh | `grant`, `outcome` — many `issue`s = tokens minted per colo |
+| `oauth.callback` | Google login | `outcome` |
+
+Live: `npx wrangler tail --env production --format json`.
+
+`mcp.init` must never throw: a throwing `init()` fails the connection on claude.ai ("returned an error when connecting") and leaves the Durable Object with zero tools. On role-lookup failure `registerSeveraServer` (`src/mcp/register.ts`) registers everything and relies on per-handler authz.
+
 ## Design principles locked in
 
 - Broad resource-oriented tools + `severa_query` escape hatch. Not per-question tools.

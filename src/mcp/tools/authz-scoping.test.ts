@@ -234,7 +234,7 @@ describe("role changes take effect on the next call once the cached role is gone
     const first = await callTool("severa_list_work_hours", {}, [registerHoursNoWrites], { env });
     expect(first.text).toContain("Sam Sample");
 
-    // Simulate the 60s role-cache TTL (src/severa/user-resolver.ts) having
+    // Simulate the role-cache TTL (src/severa/user-resolver.ts) having
     // elapsed — this harness's in-memory KV mock doesn't implement expiry,
     // so evict the entry directly rather than fake-advance time. Key format
     // mirrors that file's private cacheKey().

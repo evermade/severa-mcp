@@ -1,4 +1,5 @@
 import type { OAuthTokenResponse } from "./types";
+import { log, errorMessage } from "../log";
 
 const EXPIRY_BUFFER_SECONDS = 300;
 const TOKEN_PATH = "/v1/token";
@@ -70,9 +71,24 @@ export async function getAccessToken(env: TokenManagerEnv): Promise<string> {
   if (inFlight) return inFlight;
   inFlight = (async () => {
     try {
-      const fresh = cached?.refreshToken
-        ? await refreshToken(env, cached.refreshToken).catch(() => issueToken(env))
-        : await issueToken(env);
+      const started = Date.now();
+      let grant = cached?.refreshToken ? "refresh" : "issue";
+      let fresh: StoredToken;
+      try {
+        fresh = cached?.refreshToken
+          ? await refreshToken(env, cached.refreshToken).catch((err) => {
+              log("severa.token", { grant: "refresh", outcome: "failed", error: errorMessage(err) }, "warn");
+              grant = "issue";
+              return issueToken(env);
+            })
+          : await issueToken(env);
+      } catch (err) {
+        log("severa.token", { grant, outcome: "failed", error: errorMessage(err) }, "error");
+        throw err;
+      }
+      // Frequent `issue` events across isolates point at KV propagation lag
+      // (each colo minting its own token) — worth watching.
+      log("severa.token", { grant, outcome: "ok", durationMs: Date.now() - started });
       await writeStored(env.CACHE_KV, key, fresh);
       return fresh.accessToken;
     } finally {

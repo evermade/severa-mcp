@@ -115,8 +115,9 @@ export function requireVisible(authz: CallerAuthz, guid: Guid | undefined, what:
 // best-effort tool-list tailoring layer — it can go stale for as long as a
 // Durable Object instance stays hot (no reconnect needed to trigger it, but
 // no guarantee either). Every handler in a blockable category calls this as
-// its first line so a caller demoted mid-session is denied immediately on
-// the next call, regardless of what was registered when the session started.
+// its first line so a caller demoted mid-session is denied on their next
+// call once the role cache (src/severa/user-resolver.ts) refreshes,
+// regardless of what was registered when the session started.
 export async function requireCategoryAccess(
   env: Env,
   props: SessionProps,

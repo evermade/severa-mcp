@@ -6,8 +6,10 @@ import {
 } from "./token-manager";
 import { acquireRateLimit } from "./rate-limit";
 import type { SeveraError } from "./types";
+import { log } from "../log";
 
 const MAX_RETRIES = 4;
+const SLOW_REQUEST_MS = 5000;
 
 export type SeveraEnv = TokenManagerEnv;
 
@@ -45,6 +47,7 @@ export async function severaFetchRaw<T>(
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
     await acquireRateLimit();
     const token = await getAccessToken(env);
+    const started = Date.now();
     const res = await fetch(url, {
       method,
       headers: {
@@ -56,19 +59,38 @@ export async function severaFetchRaw<T>(
       ...(opts.body !== undefined ? { body: JSON.stringify(opts.body) } : {}),
     });
 
+    const durationMs = Date.now() - started;
+    // Only anomalies are logged — successful requests are covered by the
+    // per-tool `tool.call` line and would just add volume.
+    const logRequest = (outcome: string, extra: Record<string, unknown> = {}) =>
+      log(
+        "severa.request",
+        { method, path, status: res.status, attempt, outcome, durationMs, ...extra },
+        outcome === "failed" ? "error" : "warn",
+      );
+
     if (res.status === 429 || (res.status >= 500 && res.status < 600)) {
-      if (attempt === MAX_RETRIES) throw await toError(res, url);
+      if (attempt === MAX_RETRIES) {
+        logRequest("failed");
+        throw await toError(res, url);
+      }
       const retryAfterMs = parseRetryAfter(res) ?? 2 ** attempt * 250;
+      logRequest("retry", { retryAfterMs });
       await sleep(retryAfterMs);
       continue;
     }
 
     if (res.status === 401 && attempt === 0) {
+      logRequest("token_cleared");
       await clearStoredToken(env);
       continue;
     }
 
-    if (!res.ok) throw await toError(res, url);
+    if (!res.ok) {
+      logRequest("failed");
+      throw await toError(res, url);
+    }
+    if (durationMs > SLOW_REQUEST_MS) logRequest("slow");
     const nextPageToken = res.headers.get("NextPageToken") ?? null;
     if (res.status === 204) return { data: undefined as unknown as T, nextPageToken };
     const data = (await res.json()) as T;

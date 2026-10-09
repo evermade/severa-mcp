@@ -6,33 +6,8 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { registerLookupTools } from "./mcp/tools/lookup.js";
-import { registerHoursTools } from "./mcp/tools/hours.js";
-import { registerCaseTools } from "./mcp/tools/cases.js";
-import { registerBillingForecastTools } from "./mcp/tools/billing-forecast.js";
-import { registerInvoiceTools } from "./mcp/tools/invoices.js";
-import { registerProposalTools } from "./mcp/tools/proposals.js";
-import { registerActivityTools } from "./mcp/tools/activities.js";
-import { registerUserTools } from "./mcp/tools/users.js";
-import { registerContactTools } from "./mcp/tools/contacts.js";
-import { registerProductTools } from "./mcp/tools/products.js";
-import { registerPhaseTools } from "./mcp/tools/phases.js";
-import { registerResourceAllocationTools } from "./mcp/tools/resource-allocations.js";
-import { registerFeeTools } from "./mcp/tools/fees.js";
-import { registerTravelTools } from "./mcp/tools/travels.js";
-import { registerOvertimeTools } from "./mcp/tools/overtimes.js";
-import { registerHolidayTools } from "./mcp/tools/holidays.js";
-import { registerRoleTools } from "./mcp/tools/roles.js";
-import { registerPhaseMemberTools } from "./mcp/tools/phase-members.js";
-import { registerRootPhaseTools } from "./mcp/tools/root-phases.js";
-import { registerContactCommunicationTools } from "./mcp/tools/contact-communications.js";
-import { registerFileTools } from "./mcp/tools/files.js";
-import { registerAccountingTools } from "./mcp/tools/accounting.js";
-import { registerCustomerSegmentTools } from "./mcp/tools/customer-segments.js";
-import { registerProjectsWriteTools } from "./mcp/tools/projects-write.js";
-import { registerQueryTools } from "./mcp/tools/query.js";
-import { registerResources } from "./mcp/resources/index.js";
-import { resolveCallerAuthz, registerAccessDeniedTool, AccessDeniedError } from "./authz.js";
+import { registerSeveraServer } from "./mcp/register.js";
+import { setLogSink } from "./log.js";
 import type { Env } from "./env.js";
 import type { SessionProps } from "./auth/session.js";
 
@@ -82,6 +57,9 @@ function makeMemoryKV() {
   };
 }
 
+// stdout is the MCP transport here — keep structured logs on stderr.
+setLogSink((_level, line) => process.stderr.write(line + "\n"));
+
 const vars = { ...loadDevVars(), ...process.env };
 
 const email = vars.SEVERA_USER_EMAIL;
@@ -121,52 +99,7 @@ const props: SessionProps = {
 
 const server = new McpServer({ name: "severa-mcp", version: "0.1.0" });
 
-let authz;
-try {
-  authz = await resolveCallerAuthz(env, props);
-} catch (err) {
-  if (err instanceof AccessDeniedError) {
-    registerAccessDeniedTool(server, err.message);
-    authz = undefined;
-  } else {
-    throw err;
-  }
-}
-
-if (authz) {
-  // Best-effort, eventually-consistent tool-list tailoring only — not the
-  // security boundary. That's now inside each handler (requireCategoryAccess /
-  // resolveCallerAuthz called fresh per call).
-  const enableWrites = env.ENABLE_WRITE_TOOLS === "true";
-  const allow = (key: string) => !authz.blockedToolKeys.has(key);
-
-  if (allow("lookup")) registerLookupTools(server, env, props);
-  if (allow("cases")) registerCaseTools(server, env, props);
-  if (allow("billing-forecast")) registerBillingForecastTools(server, env, props);
-  if (allow("hours")) registerHoursTools(server, env, props, { enableWrites });
-  if (allow("invoices")) registerInvoiceTools(server, env, props);
-  if (allow("proposals")) registerProposalTools(server, env, props);
-  if (allow("activities")) registerActivityTools(server, env, props);
-  if (allow("users")) registerUserTools(server, env, props);
-  if (allow("contacts")) registerContactTools(server, env, props);
-  if (allow("products")) registerProductTools(server, env, props);
-  if (allow("phases")) registerPhaseTools(server, env, props);
-  if (allow("resource-allocations")) registerResourceAllocationTools(server, env, props);
-  if (allow("fees")) registerFeeTools(server, env, props);
-  if (allow("travels")) registerTravelTools(server, env, props);
-  if (allow("overtimes")) registerOvertimeTools(server, env, props);
-  if (allow("holidays")) registerHolidayTools(server, env, props);
-  if (allow("roles")) registerRoleTools(server, env, props);
-  if (allow("phase-members")) registerPhaseMemberTools(server, env, props);
-  if (allow("root-phases")) registerRootPhaseTools(server, env, props);
-  if (allow("contact-communications")) registerContactCommunicationTools(server, env, props);
-  if (allow("files")) registerFileTools(server, env, props);
-  if (allow("accounting")) registerAccountingTools(server, env, props);
-  if (allow("customer-segments")) registerCustomerSegmentTools(server, env, props);
-  if (enableWrites && allow("projects-write")) registerProjectsWriteTools(server, env, props);
-  if (authz.canUseQuery) registerQueryTools(server, env, props);
-  registerResources(server, env, props);
-}
+await registerSeveraServer(server, env, props);
 
 const transport = new StdioServerTransport();
 await server.connect(transport);

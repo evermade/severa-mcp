@@ -2,10 +2,16 @@ import { severaPaginate } from "./client";
 import type { SeveraEnv } from "./client";
 import type { Guid, UserOutputModel } from "./types";
 
-// Short TTL is deliberate: this backs role-derived permission scoping
-// (src/authz.ts), so a role change in Severa must become visible quickly
-// without requiring the caller to disconnect and reconnect.
-const CACHE_TTL_SECONDS = 60;
+// Backs role-derived permission scoping (src/authz.ts), which is resolved on
+// every tool call — so this TTL sets both Severa load and how long a role
+// change takes to apply. A 60s TTL hit Severa's rate limits; a day is fine
+// because revoking access entirely happens upstream (the Google Workspace
+// account is closed, so OAuth stops passing), not via the Severa role.
+const CACHE_TTL_SECONDS = 24 * 60 * 60;
+
+// Collapses concurrent cache-miss lookups for the same email within one
+// isolate (e.g. parallel tool calls right after the cache entry expires).
+const inFlight = new Map<string, Promise<CachedUser | null>>();
 
 interface CachedUser {
   guid: Guid;
@@ -30,10 +36,23 @@ export function normalizeRoleName(name: string): string {
 }
 
 async function resolveSeveraUser(env: SeveraEnv, email: string): Promise<CachedUser | null> {
-  const severaEmail = resolveEmail(env, email);
   const key = cacheKey(email);
   const cached = await env.CACHE_KV.get(key, "json");
   if (cached) return cached as CachedUser;
+
+  const pending = inFlight.get(key);
+  if (pending) return pending;
+  const lookup = fetchSeveraUser(env, email, key).finally(() => inFlight.delete(key));
+  inFlight.set(key, lookup);
+  return lookup;
+}
+
+async function fetchSeveraUser(
+  env: SeveraEnv,
+  email: string,
+  key: string,
+): Promise<CachedUser | null> {
+  const severaEmail = resolveEmail(env, email);
 
   const users = await severaPaginate<UserOutputModel>(env, "/v1/users", {
     query: { email: severaEmail, rowCount: 25 },
