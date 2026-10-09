@@ -1,5 +1,10 @@
 name: Deploy
 
+# Production deploys run on Cloudflare Workers Builds (push to main →
+# `npx wrangler deploy --env production`). This workflow covers what that
+# doesn't: deploying staging, and pushing the SEVERA_EMAIL_MAP secret to
+# either environment.
+
 on:
   workflow_dispatch:
     inputs:
@@ -25,8 +30,9 @@ jobs:
 
       - run: npm ci
 
-      - name: Deploy to ${{ inputs.environment }}
-        run: npx wrangler deploy --env ${{ inputs.environment }}
+      - name: Deploy to staging
+        if: inputs.environment == 'staging'
+        run: npx wrangler deploy --env staging
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

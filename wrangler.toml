@@ -18,10 +18,14 @@ head_sampling_rate = 1
 #   npx wrangler kv namespace create OAUTH_KV
 #   npx wrangler kv namespace create CACHE_KV
 # Then paste the returned IDs below.
+#
+# The top level mirrors [env.production] on purpose: Workers Builds deploys
+# with `--env production`, but a bare `wrangler deploy` also targets the
+# `severa-mcp` worker, so it must never ship different bindings or roles.
 
 kv_namespaces = [
-  { binding = "OAUTH_KV", id = "0f4cbc5ccd4b49baa0b6056f5dfdc306" },
-  { binding = "CACHE_KV", id = "d835cb2f570a482491945b0a64c37b5a" },
+  { binding = "OAUTH_KV", id = "bb71ae63004d47c68d0f94e139eeb745" },
+  { binding = "CACHE_KV", id = "de16d5cea0f44569ac48a47c010c2007" },
 ]
 
 [durable_objects]
@@ -40,9 +44,9 @@ SEVERA_API_BASE_PROD = "https://api.severa.visma.com/rest-api"
 GOOGLE_HOSTED_DOMAIN = "evermade.fi"
 ENABLE_WRITE_TOOLS = "false"
 SEVERA_FULL_ACCESS_ROLES = "Pääkäyttäjä"
-SEVERA_BUSINESS_ONLY_ROLES = "Johto"
+SEVERA_BUSINESS_ONLY_ROLES = "Account Director,Project Manager"
 SEVERA_BUSINESS_ONLY_BLOCKED_TOOLS = ""
-SEVERA_SELF_ONLY_ROLES = "Työntekijä"
+SEVERA_SELF_ONLY_ROLES = "Employee"
 
 [env.staging]
 name = "severa-mcp-staging"

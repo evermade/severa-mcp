@@ -35,10 +35,14 @@ npm run test:integration  # real Severa
 
 ## Deploy
 
-Pushed to `main` ≠ deployed. Deploys are manual:
+**Production deploys on push to `main`** via Cloudflare Workers Builds (deploy command `npx wrangler deploy --env production`). Build status: Cloudflare dashboard → Workers → severa-mcp → Deployments.
+
+The top level of `wrangler.toml` mirrors `[env.production]` so a bare `wrangler deploy` can't ship different KV bindings or roles to the same `severa-mcp` worker — keep them in sync.
+
+Staging, and the `SEVERA_EMAIL_MAP` secret for either env, go through GitHub Actions:
 
 ```bash
-gh workflow run deploy.yml -f environment=production
+gh workflow run deploy.yml -f environment=staging
 gh run watch "$(gh run list --workflow deploy.yml --limit 1 --json databaseId -q '.[0].databaseId')" --exit-status
 ```
 

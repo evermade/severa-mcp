@@ -115,6 +115,8 @@ npm run deploy:staging
 npm run deploy:production
 ```
 
+After initial setup, production deploys automatically on push to `main` via Cloudflare Workers Builds (deploy command `npx wrangler deploy --env production`).
+
 ## Adding as a Claude connector
 
 **Claude Desktop / Claude mobile** → Settings → Connectors → *Add custom connector* → paste:
